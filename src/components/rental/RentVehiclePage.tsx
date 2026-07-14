@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Car, Calendar, MapPin, Shield, Clock, Check, ChevronRight, Loader2, AlertTriangle, Package, DollarSign, Star, Zap, Search, Filter, ArrowUpDown } from "lucide-react";
+import { carImageMap } from "../../data/carImages";
 
 interface RentalVehicle {
   id: number; model: string; year: number; price: number; range_miles: number; acceleration: string; battery: string; description: string; badge: string; category: string; status: string; rental_price_per_day: number; specs: any;
@@ -66,9 +67,9 @@ export function RentVehiclePage({ authToken, onNavigate }: Props) {
   useEffect(() => { if (selectedVehicle && booking.startDate && booking.endDate) checkAvailability(); }, [booking.startDate, booking.endDate, selectedVehicle]);
 
   const calculateTotal = () => {
-    if (!selectedVehicle || !availability) return { daily: 0, days: 0, subtotal: 0, insurance: 0, extras: 0, delivery: 0, total: 0 };
-    const days = Math.max(1, Math.ceil((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / 86400000));
-    const daily = availability.price_per_day;
+    if (!selectedVehicle) return { daily: 0, days: 0, subtotal: 0, insurance: 0, extras: 0, delivery: 0, total: 0 };
+    const days = booking.startDate && booking.endDate ? Math.max(1, Math.ceil((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / 86400000)) : 1;
+    const daily = availability?.price_per_day || selectedVehicle.rental_price_per_day || 150;
     const insurance = (INSURANCE_TIERS.find(t => t.id === booking.insuranceTier)?.price || 10) * days;
     const extras = (booking.extras.gps ? 5 : 0) + (booking.extras.childSeat ? 8 : 0) + (booking.extras.roofRack ? 12 : 0) + (booking.extras.winterTires ? 15 : 0);
     const delivery = DELIVERY_CITIES.find(c => c.city === booking.deliveryCity)?.fee || 0;
@@ -251,7 +252,7 @@ export function RentVehiclePage({ authToken, onNavigate }: Props) {
           {filteredVehicles.map(v => (
             <div key={v.id} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:border-cyan-500/30 transition group">
               <div className="aspect-video bg-white/5 relative overflow-hidden">
-                <img src={`https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=600&q=80`} alt={v.model} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" loading="lazy" />
+                <img src={carImageMap[v.model] || "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=600&q=80"} alt={v.model} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=600&q=80"; }} />
                 {v.badge && <div className="absolute top-3 left-3 px-2 py-0.5 bg-cyan-500/20 border border-cyan-500/30 rounded-full text-[9px] font-bold text-cyan-300">{v.badge}</div>}
                 <div className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-lg text-sm font-bold text-cyan-400 font-mono">${v.rental_price_per_day}/day</div>
               </div>

@@ -866,6 +866,14 @@ app.post("/api/admin/rentals/:orderId/status", async (req: any, res) => {
   res.json({ success: true });
 });
 
+app.post("/api/admin/rentals/price", async (req: any, res) => {
+  const { carId, rentalPricePerDay } = req.body;
+  if (!carId || rentalPricePerDay === undefined) return res.status(400).json({ error: "Car ID and price required." });
+  const db = await getDb();
+  await db.run("UPDATE cars SET rental_price_per_day = ? WHERE id = ?", [parseFloat(rentalPricePerDay), carId]);
+  res.json({ success: true, message: "Rental price updated." });
+});
+
 // ==================== INVESTMENTS ====================
 
 app.get("/api/investments/options", async (req, res) => {

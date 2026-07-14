@@ -358,7 +358,8 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
     setCarErr(""); setCarMsg("");
     try {
       const url = editingCar ? `/api/admin/cars/${editingCar.id}` : "/api/admin/cars";
-      const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify(carForm) });
+      const body = { ...carForm, rental_price_per_day: carForm.rental_price || 0 };
+      const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify(body) });
       const d = await res.json();
       if (res.ok) {
         showMsg(setCarMsg, editingCar ? "Car updated." : "Car added.");
@@ -1044,7 +1045,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {cars.map((c: any) => (
                   <div key={c.id} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden group">
-                    {c.image && <div className="h-40 bg-[#0a0e1a] flex items-center justify-center overflow-hidden"><img src={c.image} alt={c.name} className="w-full h-full object-cover" /></div>}
+                    {(c.image || c.image_url) && <div className="h-40 bg-[#0a0e1a] flex items-center justify-center overflow-hidden"><img src={c.image || c.image_url} alt={c.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
                     <div className="p-4 space-y-2">
                       <div className="flex justify-between items-start">
                         <div>
@@ -1063,9 +1064,9 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                         {c.range_km && <span>{c.range_km} km</span>}
                         {c.seats && <span>{c.seats} seats</span>}
                       </div>
-                      {c.rental_price && <p className="text-[#00E5FF] font-bold">${Number(c.rental_price).toLocaleString()}/day</p>}
+                      {c.rental_price_per_day ? <p className="text-[#00E5FF] font-bold">${Number(c.rental_price_per_day).toLocaleString()}/day</p> : c.rental_price ? <p className="text-[#00E5FF] font-bold">${Number(c.rental_price).toLocaleString()}/day</p> : null}
                       <div className="flex gap-1.5 pt-2 opacity-0 group-hover:opacity-100 transition">
-                        <button onClick={() => { setEditingCar(c); setShowCarForm(true); setCarForm({ name: c.name, model: c.model || "", year: c.year || "", image: c.image || "", status: c.status, rental_price: c.rental_price || "", description: c.description || "", type: c.type || "", range_km: c.range_km || "", seats: c.seats || 5 }); }}
+                        <button onClick={() => { setEditingCar(c); setShowCarForm(true); setCarForm({ name: c.name, model: c.model || "", year: c.year || "", image: c.image || c.image_url || "", status: c.status, rental_price: c.rental_price_per_day || c.rental_price || "", description: c.description || "", type: c.category || c.type || "", range_km: c.range_miles || c.range_km || "", seats: c.seats || 5 }); }}
                           className="p-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
                         <button onClick={() => { const f = document.createElement("input"); f.type = "file"; f.accept = "image/*"; f.onchange = () => { if (f.files?.[0]) handleUploadCarImage(c.id, f.files[0]); }; f.click(); }}
                           className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition cursor-pointer"><Upload className="w-3.5 h-3.5" /></button>
