@@ -15,7 +15,7 @@ interface AdminPanelProps {
   initialIsAdmin?: boolean;
 }
 
-type TabId = "dashboard" | "users" | "payments" | "vehicles" | "tracking" | "rentals" | "investments" | "promos" | "referrals" | "content" | "gamification" | "settings";
+type TabId = "dashboard" | "users" | "payments" | "vehicles" | "tracking" | "rentals" | "investments" | "promos" | "referrals" | "content" | "gamification" | "settings" | "insurance" | "wallets" | "master";
 
 const TABS: { id: TabId; label: string; icon: React.ComponentType<any> }[] = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -29,6 +29,9 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<any> }[] = [
   { id: "referrals", label: "Referrals", icon: Users },
   { id: "content", label: "Content", icon: BookOpen },
   { id: "gamification", label: "Gamification", icon: Gamepad2 },
+  { id: "insurance", label: "Insurance", icon: Shield },
+  { id: "wallets", label: "Wallets", icon: KeyRound },
+  { id: "master", label: "AI Master", icon: Zap },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -122,6 +125,23 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
   const [changePassForm, setChangePassForm] = useState({ current_password: "", new_password: "", confirm_password: "" });
   const [settingsMsg, setSettingsMsg] = useState("");
   const [settingsErr, setSettingsErr] = useState("");
+
+  // Insurance Tiers
+  const [insuranceTiers, setInsuranceTiers] = useState<any[]>([]);
+  const [insuranceForm, setInsuranceForm] = useState({ name: "", daily_rate: "", coverage_limit: "", deductible: "", description: "" });
+  const [showInsuranceForm, setShowInsuranceForm] = useState(false);
+  const [editingInsurance, setEditingInsurance] = useState<any>(null);
+  const [insuranceMsg, setInsuranceMsg] = useState("");
+
+  // Wallets
+  const [wallets, setWallets] = useState<any>({ methods: [], global_wallet: "" });
+  const [globalWalletForm, setGlobalWalletForm] = useState("");
+  const [walletMsg, setWalletMsg] = useState("");
+
+  // Master AI
+  const [masterStatus, setMasterStatus] = useState<any>({ status: "disconnected" });
+  const [masterWebhook, setMasterWebhook] = useState("");
+  const [masterMsg, setMasterMsg] = useState("");
 
   const headers = () => ({ "Authorization": `Bearer ${adminToken}`, "Content-Type": "application/json" });
   const headersNoCT = () => ({ "Authorization": `Bearer ${adminToken}` });
@@ -233,6 +253,16 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
     try { const res = await fetch("/api/admin/promos", { headers: headersNoCT() }); setPromos(await res.json()); } catch {}
   };
 
+  const loadInsuranceTiers = async () => {
+    try { const res = await fetch("/api/admin/insurance-tiers", { headers: headersNoCT() }); setInsuranceTiers(await res.json()); } catch {}
+  };
+  const loadWallets = async () => {
+    try { const res = await fetch("/api/admin/wallets", { headers: headersNoCT() }); const data = await res.json(); setWallets(data); setGlobalWalletForm(data.global_wallet || ""); } catch {}
+  };
+  const loadMaster = async () => {
+    try { const res = await fetch("/api/admin/master-status", { headers: headersNoCT() }); setMasterStatus(await res.json()); } catch {}
+  };
+
   useEffect(() => {
     if (!isAdmin || !adminToken) return;
     switch (activeTab) {
@@ -247,6 +277,9 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
       case "referrals": loadReferrals(); break;
       case "content": loadContent(); break;
       case "gamification": loadGamification(); break;
+      case "insurance": loadInsuranceTiers(); break;
+      case "wallets": loadWallets(); break;
+      case "master": loadMaster(); break;
       case "settings": loadSettings(); break;
     }
   }, [activeTab, isAdmin, adminToken]);
@@ -697,7 +730,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { const l = { dashboard: loadDashboard, users: loadUsers, payments: loadPayments, vehicles: loadCars, tracking: loadTracking, referrals: loadReferrals, content: loadContent, gamification: loadGamification, settings: loadSettings, rentals: loadRentals, investments: loadInvestments, promos: loadPromos }[activeTab]; if (l) l(); }} disabled={loading}
+            <button onClick={() => { const l = { dashboard: loadDashboard, users: loadUsers, payments: loadPayments, vehicles: loadCars, tracking: loadTracking, referrals: loadReferrals, content: loadContent, gamification: loadGamification, settings: loadSettings, rentals: loadRentals, investments: loadInvestments, promos: loadPromos, insurance: loadInsuranceTiers, wallets: loadWallets, master: loadMaster }[activeTab]; if (l) l(); }} disabled={loading}
               className="p-2 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] uppercase font-bold tracking-wider text-white/70 flex items-center gap-1.5 cursor-pointer transition disabled:opacity-40">
               <RefreshCw className={`w-3.5 h-3.5 text-[#00E5FF] ${loading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Refresh</span>
@@ -1031,7 +1064,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                       <option value="Pre-Order">Pre-Order</option>
                       <option value="Club Exclusive">Club Exclusive</option>
                     </select>
-                    <input type="number" step="0.01" placeholder="Rental Price ($)" value={carForm.rental_price} onChange={e => setCarForm({ ...carForm, rental_price: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="number" step="0.01" min="150" placeholder="Rental Price ($150 min)" value={carForm.rental_price} onChange={e => setCarForm({ ...carForm, rental_price: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
                     <input type="number" placeholder="Seats" value={carForm.seats} onChange={e => setCarForm({ ...carForm, seats: Number(e.target.value) })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
                   </div>
                   <textarea placeholder="Description" rows={3} value={carForm.description} onChange={e => setCarForm({ ...carForm, description: e.target.value })} className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
@@ -1553,6 +1586,138 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ INSURANCE TIERS ═══ */}
+          {activeTab === "insurance" && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl">
+                <span className="text-xs text-white/40 font-mono">{insuranceTiers.length} tiers</span>
+                <button onClick={() => { setShowInsuranceForm(!showInsuranceForm); setEditingInsurance(null); setInsuranceForm({ name: "", daily_rate: "", coverage_limit: "", deductible: "", description: "" }); }}
+                  className="px-4 py-2 bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20 rounded-xl text-[10px] uppercase font-bold tracking-wider hover:bg-[#00E5FF]/20 transition cursor-pointer flex items-center gap-2">
+                  <Plus className="w-3.5 h-3.5" /> {showInsuranceForm ? "Cancel" : "Add Tier"}
+                </button>
+              </div>
+              {insuranceMsg && <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl">{insuranceMsg}</p>}
+
+              {showInsuranceForm && (
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const url = editingInsurance ? `/api/admin/insurance-tiers/${editingInsurance.id}` : "/api/admin/insurance-tiers";
+                  const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify({ ...insuranceForm, daily_rate: parseFloat(insuranceForm.daily_rate), coverage_limit: parseFloat(insuranceForm.coverage_limit), deductible: parseFloat(insuranceForm.deductible || "0") }) });
+                  if (res.ok) { showMsg(setInsuranceMsg, editingInsurance ? "Tier updated." : "Tier added."); setShowInsuranceForm(false); setEditingInsurance(null); loadInsuranceTiers(); }
+                }} className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl space-y-3">
+                  <h3 className="text-sm font-bold flex items-center gap-2"><Shield className="w-4 h-4 text-[#00E5FF]" /> {editingInsurance ? "Edit" : "Add"} Insurance Tier</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input type="text" placeholder="Tier Name" required value={insuranceForm.name} onChange={e => setInsuranceForm({ ...insuranceForm, name: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="number" step="0.01" min="15" placeholder="Daily Rate ($15 min)" required value={insuranceForm.daily_rate} onChange={e => setInsuranceForm({ ...insuranceForm, daily_rate: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="number" placeholder="Coverage Limit ($)" required value={insuranceForm.coverage_limit} onChange={e => setInsuranceForm({ ...insuranceForm, coverage_limit: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="number" placeholder="Deductible ($)" value={insuranceForm.deductible} onChange={e => setInsuranceForm({ ...insuranceForm, deductible: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                  </div>
+                  <textarea placeholder="Description" rows={2} value={insuranceForm.description} onChange={e => setInsuranceForm({ ...insuranceForm, description: e.target.value })} className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                  <button type="submit" className="px-5 py-2 bg-[#00E5FF] text-[#0a0e1a] font-bold uppercase text-[10px] tracking-wider rounded-xl hover:bg-[#00E5FF]/90 transition cursor-pointer">
+                    {editingInsurance ? "Update" : "Add"} Tier
+                  </button>
+                </form>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {insuranceTiers.map((t: any) => (
+                  <div key={t.id} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-bold text-sm">{t.name}</h4>
+                      <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${t.is_active ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                        {t.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <p className="text-[#00E5FF] font-bold text-lg">${t.daily_rate}/day</p>
+                    <p className="text-[11px] text-white/50">Coverage: ${t.coverage_limit?.toLocaleString()}</p>
+                    <p className="text-[11px] text-white/50">Deductible: ${t.deductible?.toLocaleString()}</p>
+                    {t.description && <p className="text-[11px] text-white/40">{t.description}</p>}
+                    <div className="flex gap-1.5 pt-2">
+                      <button onClick={() => { setEditingInsurance(t); setShowInsuranceForm(true); setInsuranceForm({ name: t.name, daily_rate: t.daily_rate, coverage_limit: t.coverage_limit, deductible: t.deductible || "", description: t.description || "" }); }}
+                        className="p-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
+                      <button onClick={async () => { if (!confirm("Delete this tier?")) return; await fetch(`/api/admin/insurance-tiers/${t.id}`, { method: "DELETE", headers: headersNoCT() }); loadInsuranceTiers(); }}
+                        className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={async () => { await fetch(`/api/admin/insurance-tiers/${t.id}`, { method: "POST", headers: headers(), body: JSON.stringify({ ...t, is_active: t.is_active ? 0 : 1 }) }); loadInsuranceTiers(); }}
+                        className="p-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition cursor-pointer">
+                        {t.is_active ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ WALLET CONFIGURATION ═══ */}
+          {activeTab === "wallets" && (
+            <div className="space-y-4">
+              {walletMsg && <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl">{walletMsg}</p>}
+
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl space-y-3">
+                <h3 className="text-sm font-bold flex items-center gap-2"><KeyRound className="w-4 h-4 text-[#00E5FF]" /> Global Crypto Wallet Address</h3>
+                <div className="flex gap-3">
+                  <input type="text" placeholder="0x..." value={globalWalletForm} onChange={e => setGlobalWalletForm(e.target.value)} className="flex-1 bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs font-mono focus:outline-none focus:border-[#00E5FF]/50" />
+                  <button onClick={async () => { await fetch("/api/admin/wallets/global", { method: "POST", headers: headers(), body: JSON.stringify({ wallet_address: globalWalletForm }) }); showMsg(setWalletMsg, "Global wallet updated."); loadWallets(); }}
+                    className="px-4 py-2 bg-[#00E5FF] text-[#0a0e1a] font-bold uppercase text-[10px] tracking-wider rounded-xl hover:bg-[#00E5FF]/90 transition cursor-pointer">Save</button>
+                </div>
+                <p className="text-[11px] text-white/40">This wallet receives all crypto deposits unless a user has a custom wallet set.</p>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl space-y-3">
+                <h3 className="text-sm font-bold flex items-center gap-2"><CreditCard className="w-4 h-4 text-[#00E5FF]" /> Payment Methods</h3>
+                <div className="space-y-2">
+                  {wallets.methods?.map((m: any) => (
+                    <div key={m.id} className="flex items-center gap-3 bg-[#0a0e1a] border border-white/10 p-3 rounded-xl">
+                      <span className="text-xs font-bold uppercase w-24">{m.method}</span>
+                      <span className="text-[11px] text-white/50 flex-1 font-mono truncate">{m.wallet_address || "N/A"}</span>
+                      <span className="text-[11px] text-white/40">Gas: ${m.gas_fee}</span>
+                      <span className="text-[11px] text-[#00E5FF]">Bonus: {m.crypto_bonus_percent}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ MASTER AI ADMIN ═══ */}
+          {activeTab === "master" && (
+            <div className="space-y-4">
+              {masterMsg && <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl">{masterMsg}</p>}
+
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl space-y-4">
+                <h3 className="text-sm font-bold flex items-center gap-2"><Zap className="w-4 h-4 text-[#00E5FF]" /> Master AI Admin Connector</h3>
+                <div className={`flex items-center gap-2 text-xs ${masterStatus.status === 'connected' ? 'text-emerald-400' : 'text-white/40'}`}>
+                  <span className={`w-2 h-2 rounded-full ${masterStatus.status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`}></span>
+                  Status: {masterStatus.status === 'connected' ? 'Connected' : 'Disconnected'}
+                  {masterStatus.instance_id && <span className="font-mono text-[10px] text-white/30 ml-2">Instance: {masterStatus.instance_id}</span>}
+                </div>
+
+                {masterStatus.status !== 'connected' ? (
+                  <div className="space-y-3">
+                    <input type="text" placeholder="Webhook URL (optional)" value={masterWebhook} onChange={e => setMasterWebhook(e.target.value)} className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <button onClick={async () => { const res = await fetch("/api/admin/master-connect", { method: "POST", headers: headers(), body: JSON.stringify({ webhook_url: masterWebhook }) }); const data = await res.json(); if (data.success) { showMsg(setMasterMsg, `Connected! Instance: ${data.instance_id}`); loadMaster(); } }} className="px-5 py-2 bg-[#00E5FF] text-[#0a0e1a] font-bold uppercase text-[10px] tracking-wider rounded-xl hover:bg-[#00E5FF]/90 transition cursor-pointer flex items-center gap-2">
+                      <Zap className="w-3.5 h-3.5" /> Connect to Master AI Admin
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="bg-[#0a0e1a] border border-white/10 p-3 rounded-xl space-y-1">
+                      <p className="text-[11px] text-white/40">API Key:</p>
+                      <p className="text-xs font-mono text-[#00E5FF] break-all">{masterStatus.api_key}</p>
+                    </div>
+                    <button onClick={async () => { await fetch("/api/admin/master-disconnect", { method: "POST", headers: headers() }); showMsg(setMasterMsg, "Disconnected from Master AI."); loadMaster(); }}
+                      className="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 font-bold uppercase text-[10px] tracking-wider rounded-xl hover:bg-red-500/20 transition cursor-pointer">Disconnect</button>
+                  </div>
+                )}
+
+                <div className="text-[11px] text-white/30 space-y-1 mt-4">
+                  <p>The Master AI Admin connector allows centralized monitoring across all Horizon Club instances.</p>
+                  <p>Capabilities: aggregate analytics, push global config, mass notifications, health checks.</p>
                 </div>
               </div>
             </div>

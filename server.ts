@@ -828,6 +828,19 @@ app.post("/api/rentals/book", authenticateUser, async (req: any, res) => {
   if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC verification required before renting.", kycRequired: true });
   const car = await db.get("SELECT * FROM cars WHERE id = ?", [carId]);
   if (!car) return res.status(404).json({ error: "Vehicle not found." });
+  // Enforce $150 minimum rental price
+  const minRentalPrice = 150;
+  if (car.rental_price_per_day && car.rental_price_per_day < minRentalPrice) {
+    return res.status(400).json({ error: `Rental price must be at least $${minRentalPrice}/day.` });
+  }
+  // Check deposit balance before purchase
+  const depositRequired = await getSetting('deposit_required_before_purchase');
+  if (depositRequired !== 'false') {
+    const userBalance = await db.get("SELECT balance FROM users WHERE id = ?", [req.user.id]);
+    if (!userBalance || userBalance.balance < 150) {
+      return res.status(403).json({ error: "Insufficient balance. Please deposit at least $150 before renting.", depositRequired: true });
+    }
+  }
   const conflicts = await db.all("SELECT id FROM rental_orders WHERE car_id = ? AND status IN ('confirmed','dispatched','in_transit') AND NOT (end_date < ? OR start_date > ?)", [carId, startDate, endDate]);
   if (conflicts.length > 0) return res.status(400).json({ error: "Vehicle not available for selected dates." });
   const days = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000));
@@ -849,13 +862,13 @@ app.get("/api/rentals/my-orders", authenticateUser, async (req: any, res) => {
   res.json(orders);
 });
 
-app.get("/api/admin/rentals", async (req: any, res) => {
+app.get("/api/admin/rentals", authenticateAdmin, async (req: any, res) => {
   const db = await getDb();
   const orders = await db.all("SELECT ro.*, c.model, c.range_miles, u.name as user_name, u.email as user_email FROM rental_orders ro JOIN cars c ON ro.car_id = c.id JOIN users u ON ro.user_id = u.id ORDER BY ro.id DESC");
   res.json(orders);
 });
 
-app.post("/api/admin/rentals/:orderId/status", async (req: any, res) => {
+app.post("/api/admin/rentals/:orderId/status", authenticateAdmin, async (req: any, res) => {
   const { status, eta, notes } = req.body;
   const db = await getDb();
   await db.run("UPDATE rental_orders SET status = ?, eta = ?, admin_notes = ? WHERE id = ?", [status, eta || null, notes || null, req.params.orderId]);
@@ -866,7 +879,7 @@ app.post("/api/admin/rentals/:orderId/status", async (req: any, res) => {
   res.json({ success: true });
 });
 
-app.post("/api/admin/rentals/price", async (req: any, res) => {
+app.post("/api/admin/rentals/price", authenticateAdmin, async (req: any, res) => {
   const { carId, rentalPricePerDay } = req.body;
   if (!carId || rentalPricePerDay === undefined) return res.status(400).json({ error: "Car ID and price required." });
   const db = await getDb();
@@ -890,8 +903,15 @@ app.post("/api/investments/invest", authenticateUser, async (req: any, res) => {
   if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC required for investments.", kycRequired: true });
   const option = await db.get("SELECT * FROM investment_options WHERE id = ?", [optionId]);
   if (!option) return res.status(404).json({ error: "Investment option not found." });
-  if (amount < option.min_amount) return res.status(400).json({ error: `Minimum investment is $${option.min_amount}.` });
-  if ((user.balance || 0) < amount) return res.status(400).json({ error: "Insufficient balance. Please top up first." });
+  // Enforce $150 minimum investment floor
+  const minInvestment = 150;
+  if (amount < minInvestment) return res.status(400).json({ error: `Minimum investment is $${minInvestment}.` });
+  if (amount < option.min_amount) return res.status(400).json({ error: `Minimum investment for ${option.name} is $${option.min_amount}.` });
+  // Enforce deposit before purchase
+  const depositRequired = await getSetting('deposit_required_before_purchase');
+  if (depositRequired !== 'false' && (user.balance || 0) < amount) {
+    return res.status(403).json({ error: "Insufficient balance. Please deposit at least $150 before investing.", depositRequired: true });
+  }
   await db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [amount, req.user.id]);
   const invNum = "INV-" + crypto.randomBytes(6).toString("hex").toUpperCase();
   await db.run("INSERT INTO investments (user_id, option_id, option_name, amount, projected_apy, status, investment_number) VALUES (?,?,?,?,?,?,?)", [req.user.id, optionId, option.name, amount, option.projected_apy, 'active', invNum]);
@@ -905,13 +925,13 @@ app.get("/api/investments/my", authenticateUser, async (req: any, res) => {
   res.json(investments);
 });
 
-app.get("/api/admin/investments", async (req: any, res) => {
+app.get("/api/admin/investments", authenticateAdmin, async (req: any, res) => {
   const db = await getDb();
   const investments = await db.all("SELECT i.*, u.name as user_name, u.email as user_email FROM investments i JOIN users u ON i.user_id = u.id ORDER BY i.id DESC");
   res.json(investments);
 });
 
-app.post("/api/admin/investments/:invId/update-return", async (req: any, res) => {
+app.post("/api/admin/investments/:invId/update-return", authenticateAdmin, async (req: any, res) => {
   const { returnAmount } = req.body;
   const db = await getDb();
   await db.run("UPDATE investments SET current_return = ? WHERE id = ?", [returnAmount, req.params.invId]);
@@ -926,20 +946,20 @@ app.get("/api/promos/active", async (req, res) => {
   res.json(promos);
 });
 
-app.get("/api/admin/promos", async (req: any, res) => {
+app.get("/api/admin/promos", authenticateAdmin, async (req: any, res) => {
   const db = await getDb();
   const promos = await db.all("SELECT * FROM promos ORDER BY id DESC");
   res.json(promos);
 });
 
-app.post("/api/admin/promos", async (req: any, res) => {
+app.post("/api/admin/promos", authenticateAdmin, async (req: any, res) => {
   const { name, type, discount_percent, bonus_points, start_date, end_date, description } = req.body;
   const db = await getDb();
   await db.run("INSERT INTO promos (name, type, discount_percent, bonus_points, start_date, end_date, description, is_active) VALUES (?,?,?,?,?,?,?,1)", [name, type, discount_percent || 0, bonus_points || 0, start_date || null, end_date || null, description || '']);
   res.json({ success: true });
 });
 
-app.delete("/api/admin/promos/:id", async (req: any, res) => {
+app.delete("/api/admin/promos/:id", authenticateAdmin, async (req: any, res) => {
   const db = await getDb();
   await db.run("DELETE FROM promos WHERE id = ?", [req.params.id]);
   res.json({ success: true });
@@ -961,7 +981,7 @@ app.post("/api/chat/send", authenticateUser, async (req: any, res) => {
   res.json({ success: true });
 });
 
-app.post("/api/chat/admin/send", async (req: any, res) => {
+app.post("/api/chat/admin/send", authenticateAdmin, async (req: any, res) => {
   const { ticketId, message } = req.body;
   const db = await getDb();
   await db.run("INSERT INTO chat_messages (ticket_id, sender_id, sender_type, message) VALUES (?,0,'admin',?)", [ticketId, message]);
@@ -1590,6 +1610,98 @@ app.post("/api/admin/maintenance", authenticateAdmin, async (req: any, res) => {
   const { enabled } = req.body;
   await setSetting('maintenance_mode', enabled ? 'true' : 'false');
   await logAdminAction("Toggled maintenance mode", enabled ? 'ON' : 'OFF', req.ip, req.adminId);
+  res.json({ success: true });
+});
+
+// ==================== INSURANCE TIERS ====================
+app.get("/api/admin/insurance-tiers", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const tiers = await db.all("SELECT * FROM insurance_tiers ORDER BY sort_order ASC");
+  res.json(tiers);
+});
+
+app.post("/api/admin/insurance-tiers", authenticateAdmin, async (req: any, res) => {
+  const { name, daily_rate, coverage_limit, deductible, description } = req.body;
+  if (!name || !daily_rate || !coverage_limit) return res.status(400).json({ error: "Name, daily_rate, and coverage_limit required." });
+  if (daily_rate < 15) return res.status(400).json({ error: "Insurance daily rate must be at least $15." });
+  const db = await getDb();
+  const maxOrder = await db.get("SELECT MAX(sort_order) as m FROM insurance_tiers");
+  const sortOrder = (maxOrder?.m || 0) + 1;
+  await db.run("INSERT INTO insurance_tiers (name, daily_rate, coverage_limit, deductible, description, is_active, sort_order) VALUES (?,?,?,?,?,?,?)", [name, daily_rate, coverage_limit, deductible || 0, description || '', 1, sortOrder]);
+  await logAdminAction("Added insurance tier", `${name} - $${daily_rate}/day`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
+app.post("/api/admin/insurance-tiers/:id", authenticateAdmin, async (req: any, res) => {
+  const { name, daily_rate, coverage_limit, deductible, description, is_active } = req.body;
+  const db = await getDb();
+  await db.run("UPDATE insurance_tiers SET name=?, daily_rate=?, coverage_limit=?, deductible=?, description=?, is_active=? WHERE id=?", [name, daily_rate, coverage_limit, deductible || 0, description || '', is_active !== undefined ? (is_active ? 1 : 0) : 1, req.params.id]);
+  await logAdminAction("Updated insurance tier", `Tier ID ${req.params.id}`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
+app.delete("/api/admin/insurance-tiers/:id", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  await db.run("DELETE FROM insurance_tiers WHERE id=?", [req.params.id]);
+  await logAdminAction("Deleted insurance tier", `Tier ID ${req.params.id}`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
+// Public insurance tiers for rental flow
+app.get("/api/insurance-tiers", async (req: any, res) => {
+  const db = await getDb();
+  const tiers = await db.all("SELECT * FROM insurance_tiers WHERE is_active = 1 ORDER BY sort_order ASC");
+  res.json(tiers);
+});
+
+// ==================== WALLET CONFIGURATION ====================
+app.get("/api/admin/wallets", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const methods = await db.all("SELECT id, method, wallet_address, gas_fee, crypto_bonus_percent FROM payment_methods");
+  const globalWallet = await getSetting('global_crypto_wallet');
+  res.json({ methods, global_wallet: globalWallet || '0xBYDHorizonEscrowWallet2026' });
+});
+
+app.post("/api/admin/wallets/global", authenticateAdmin, async (req: any, res) => {
+  const { wallet_address } = req.body;
+  if (!wallet_address) return res.status(400).json({ error: "Wallet address required." });
+  await setSetting('global_crypto_wallet', wallet_address);
+  const db = await getDb();
+  await db.run("UPDATE payment_methods SET wallet_address = ? WHERE method = 'crypto'", [wallet_address]);
+  await logAdminAction("Updated global crypto wallet", wallet_address, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
+app.post("/api/admin/wallets/user", authenticateAdmin, async (req: any, res) => {
+  const { user_id, wallet_address } = req.body;
+  if (!user_id || !wallet_address) return res.status(400).json({ error: "User ID and wallet address required." });
+  const db = await getDb();
+  await db.run("UPDATE users SET crypto_wallet_address = ? WHERE id = ?", [wallet_address, user_id]);
+  await logAdminAction("Updated user wallet", `User #${user_id}: ${wallet_address}`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
+// ==================== MASTER AI ADMIN CONNECTOR ====================
+app.post("/api/admin/master-connect", authenticateAdmin, async (req: any, res) => {
+  const { webhook_url } = req.body;
+  const db = await getDb();
+  const instanceId = `byd-horizon-${Date.now().toString(36)}`;
+  const apiKey = crypto.randomBytes(32).toString('hex');
+  await db.run("INSERT INTO master_ai_connections (instance_id, api_key, webhook_url, status, created_at) VALUES (?, ?, ?, 'connected', CURRENT_TIMESTAMP)", [instanceId, apiKey, webhook_url || '']);
+  await logAdminAction("Connected to Master AI Admin", `Instance: ${instanceId}`, req.ip, req.adminId);
+  res.json({ success: true, instance_id: instanceId, api_key: apiKey, status: 'connected' });
+});
+
+app.get("/api/admin/master-status", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const conn = await db.get("SELECT * FROM master_ai_connections ORDER BY id DESC LIMIT 1");
+  res.json(conn || { status: 'disconnected' });
+});
+
+app.post("/api/admin/master-disconnect", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  await db.run("UPDATE master_ai_connections SET status = 'disconnected' WHERE status = 'connected'");
+  await logAdminAction("Disconnected from Master AI Admin", "", req.ip, req.adminId);
   res.json({ success: true });
 });
 

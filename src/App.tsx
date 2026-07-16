@@ -36,7 +36,7 @@ export default function App() {
       try {
         const u = JSON.parse(savedUser);
         setUser(u);
-        if (u.is_admin) setCurrentView("admin");
+        if (u.is_admin) { setCurrentView("dashboard"); if (!localStorage.getItem("byd_terms_accepted")) setShowTerms(true); }
         else { setCurrentView("dashboard"); if (!localStorage.getItem("byd_terms_accepted")) setShowTerms(true); }
       } catch {
         localStorage.removeItem("byd_horizon_token");
@@ -70,8 +70,7 @@ export default function App() {
     const n = adminClickCount + 1;
     if (n >= 5) {
       setAdminClickCount(0);
-      if (user?.is_admin) { handleNavigate("admin"); }
-      else { setShowAdminLogin(true); }
+      setShowAdminLogin(true);
     } else {
       setAdminClickCount(n);
     }
@@ -93,6 +92,7 @@ export default function App() {
         setShowAdminLogin(false);
         setAdminEmail("");
         setAdminPass("");
+        handleNavigate("admin");
       } else if (res.ok) {
         setAdminLoginError("This account is not an admin.");
       } else {
@@ -110,7 +110,7 @@ export default function App() {
     setUser(newUser);
     localStorage.setItem("byd_horizon_token", newToken);
     localStorage.setItem("byd_horizon_user", JSON.stringify(newUser));
-    setCurrentView(newUser.is_admin ? "admin" : "dashboard");
+    setCurrentView("dashboard");
     if (!localStorage.getItem("byd_terms_accepted")) setShowTerms(true);
   };
 
@@ -186,9 +186,10 @@ export default function App() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-[10px] font-mono text-white/60 uppercase">{user?.name || "User"}</span>
                 </div>
-                {user?.is_admin ? (
-                  <button onClick={() => handleNavigate("admin")} className="px-3 py-1.5 bg-[#00e5ff]/10 text-[#00e5ff] border border-[#00e5ff]/20 rounded-lg text-xs font-bold font-mono uppercase tracking-wider">Admin</button>
-                ) : (
+                {token && !user?.is_admin && (
+                  <button onClick={() => handleNavigate("help")} className="hidden sm:inline-flex px-3 py-1.5 text-white/60 hover:text-white text-xs font-mono tracking-wide uppercase hover:bg-white/5 rounded-lg transition">Help</button>
+                )}
+                {token && (
                   <button onClick={() => handleNavigate("dashboard")} className="px-3 py-1.5 bg-white/5 text-white/80 border border-white/10 rounded-lg text-xs font-bold font-mono uppercase tracking-wider hover:bg-white/10 transition">Portal</button>
                 )}
                 <button onClick={handleLogout} className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition"><LogOut className="w-4 h-4" /></button>

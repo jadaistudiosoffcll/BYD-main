@@ -190,7 +190,9 @@ export async function getDb() {
     `CREATE TABLE IF NOT EXISTS promos (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, type TEXT NOT NULL, discount_percent REAL DEFAULT 0, bonus_points INTEGER DEFAULT 0, start_date TEXT, end_date TEXT, description TEXT, is_active INTEGER DEFAULT 1)`,
     `CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER NOT NULL, sender_id INTEGER DEFAULT 0, sender_type TEXT DEFAULT 'user', message TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS support_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT NOT NULL, email TEXT NOT NULL, subject TEXT NOT NULL, message TEXT NOT NULL, status TEXT DEFAULT 'open', priority TEXT DEFAULT 'normal', assigned_agent TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
-    `CREATE TABLE IF NOT EXISTS byd_offices (id INTEGER PRIMARY KEY AUTOINCREMENT, city TEXT NOT NULL, country TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, region TEXT, stock_json TEXT DEFAULT '{}')`
+    `CREATE TABLE IF NOT EXISTS byd_offices (id INTEGER PRIMARY KEY AUTOINCREMENT, city TEXT NOT NULL, country TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, region TEXT, stock_json TEXT DEFAULT '{}')`,
+    `CREATE TABLE IF NOT EXISTS insurance_tiers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, daily_rate REAL NOT NULL, coverage_limit REAL NOT NULL, deductible REAL DEFAULT 0, description TEXT, is_active INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0)`,
+    `CREATE TABLE IF NOT EXISTS master_ai_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT NOT NULL UNIQUE, api_key TEXT NOT NULL, webhook_url TEXT, status TEXT DEFAULT 'connected', last_sync TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`
   ];
 
   for (const sql of tables) {
@@ -523,6 +525,37 @@ export async function getDb() {
     for (const p of promos) {
       await dbInstance!.run('INSERT INTO promos (name, type, discount_percent, bonus_points, start_date, end_date, description, is_active) VALUES (?,?,?,?,?,?,?,1)', p);
     }
+  }
+
+  // Seed insurance tiers
+  const itCount = await dbInstance!.get('SELECT COUNT(*) as count FROM insurance_tiers');
+  if (itCount && itCount.count === 0) {
+    const tiers = [
+      ['Basic', 15, 50000, 1000, 'Basic coverage for essential protection', 1, 1],
+      ['Premium', 30, 100000, 500, 'Comprehensive coverage with lower deductible', 1, 2],
+      ['Elite', 60, 250000, 250, 'Maximum coverage with minimal deductible', 1, 3],
+    ];
+    for (const t of tiers) {
+      await dbInstance!.run('INSERT INTO insurance_tiers (name, daily_rate, coverage_limit, deductible, description, is_active, sort_order) VALUES (?,?,?,?,?,?,?)', t);
+    }
+  }
+
+  // Update payment_methods minimum deposit to $150
+  await dbInstance!.run("UPDATE payment_methods SET min_deposit = 150 WHERE min_deposit < 150");
+
+  // Seed $150 minimum floor settings
+  const floorSettings = [
+    ['min_deposit_floor', '150'],
+    ['min_rental_price_floor', '150'],
+    ['min_investment_floor', '150'],
+    ['min_purchase_price_floor', '150'],
+    ['min_membership_price_floor', '150'],
+    ['insurance_required_for_rentals', 'true'],
+    ['crypto_recommended', 'true'],
+    ['deposit_required_before_purchase', 'true'],
+  ];
+  for (const [key, value] of floorSettings) {
+    await dbInstance!.run('INSERT OR IGNORE INTO system_settings (key, value) VALUES (?, ?)', [key, value]);
   }
 
   } catch (e: any) { console.error("Seed error:", e?.message); }
