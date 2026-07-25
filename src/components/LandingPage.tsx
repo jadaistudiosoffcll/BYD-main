@@ -110,7 +110,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {HERO_SLIDES.map((slide, i) => (
           <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ${i === heroIdx ? "opacity-100 z-10" : "opacity-0 z-0"}`}>
-            <img src={slide.img} alt="" className="w-full h-full object-cover" loading={i === 0 ? "eager" : "lazy"} />
+            <img src={slide.img} alt="" className="w-full h-full object-cover" loading={i === 0 ? "eager" : "lazy"} onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format"; }} />
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-slate-950/60" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/30" />
           </div>
@@ -347,7 +347,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
             <div className="grid grid-cols-2 h-full">
               {FEATURED_CARS.slice(0, 4).map((car, i) => (
                 <div key={i} className="relative overflow-hidden group/card border border-white/5">
-                  <img src={car.img} alt={car.name} className="w-full h-full object-cover group-hover/card:scale-110 transition-all duration-700" />
+                  <img src={car.img} alt={car.name} className="w-full h-full object-cover group-hover/card:scale-110 transition-all duration-700" onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format"; }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent p-4 flex flex-col justify-end">
                     <h4 className="font-display text-sm font-bold text-white">{car.name}</h4>
                     <p className="text-[10px] text-slate-400 font-mono">{car.category}</p>
@@ -434,6 +434,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                     src={TESTIMONIALS[testimonialIdx].avatar}
                     alt={TESTIMONIALS[testimonialIdx].name}
                     className="w-12 h-12 rounded-full object-cover border-2 border-cyan-400/30"
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format"; }}
                   />
                   <div className="text-left">
                     <div className="font-display font-semibold text-white">{TESTIMONIALS[testimonialIdx].name}</div>
@@ -496,7 +497,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
               className="group rounded-3xl bg-slate-900 border border-white/10 overflow-hidden hover:border-cyan-500/30 transition-all duration-500"
             >
               <div className="h-48 overflow-hidden">
-                <img src={car.img} alt={car.name} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" />
+                <img src={car.img} alt={car.name} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format"; }} />
               </div>
               <div className="p-6 space-y-4">
                 <div>

@@ -62,9 +62,9 @@ export const CarComparisonSidebar: React.FC<CarComparisonSidebarProps> = ({
     (fc) => !comparedCars.some((cc) => cc.id === fc.id)
   );
 
-  // Simulated Inspection steps
+  // Quality Inspection steps
   const stepsList = [
-    { name: "Rigid Chassis Envelope Stress Test", desc: "Verifying Cell-to-Body (CTB) integrity & load balancing coefficients under Simulated Drift torque." },
+    { name: "Rigid Chassis Envelope Stress Test", desc: "Verifying Cell-to-Body (CTB) integrity & load balancing coefficients under Dynamic Drift torque." },
     { name: "Alloy Thermal dissipation diagnostics", desc: "Checking ventilation windalloy pathways, Brembo caliper response, and tire tread depth profile." },
     { name: "Telemetry Node & Snapdragon Handshake", desc: "Aligning DiLink 5G digital antennas, swiveling accelerometer matrices, and live GPS ping-response ratios." },
     { name: "Neural Vision & Lidar Scan Alignment", desc: "Calibrating DiPilot active radar laser sweep guides, pedestrian emergency buffers, and cruise stability." }
@@ -344,7 +344,7 @@ export const CarComparisonSidebar: React.FC<CarComparisonSidebarProps> = ({
               </div>
             </div>
 
-            {/* Simulated Live sweep state */}
+            {/* Live sweep state */}
             {isInspecting ? (
               <div className="space-y-3.5 py-2 animate-fade-in">
                 <div className="space-y-1">

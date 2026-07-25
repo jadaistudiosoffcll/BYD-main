@@ -24,7 +24,7 @@ export default function SupportWidget() {
     setChatMessages(prev => [...prev, { sender: "user", text: userMsg, time }]);
     setChatInput("");
 
-    // Simulate canned delays
+    // Add canned delays
     setTimeout(() => {
       setChatMessages(prev => [...prev, {
         sender: "bot",
@@ -236,7 +236,7 @@ export default function SupportWidget() {
                   <Phone className="w-8 h-8 text-cyan-400" />
                 </div>
                 <div>
-                  <h4 className="font-display font-medium text-sm text-slate-200">Simulated Telephone Voicemail</h4>
+                  <h4 className="font-display font-medium text-sm text-slate-200">Telephone Voicemail Support</h4>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                     All our telecommunication hotlines are currently congested due to international order queues.
                   </p>

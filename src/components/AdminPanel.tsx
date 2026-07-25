@@ -464,7 +464,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
 
   // ── Referrals ──
   const handleInjectLeaderboard = async () => {
-    const name = window.prompt("Enter fake leaderboard name:");
+    const name = window.prompt("Enter sample leaderboard name:");
     if (!name) return;
     const points = window.prompt("Enter points:");
     if (!points) return;
@@ -1285,12 +1285,12 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                 <button onClick={handleInjectLeaderboard} className="p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl hover:bg-white/10 transition cursor-pointer text-left">
                   <Award className="w-5 h-5 text-amber-400 mb-2" />
                   <p className="text-xs font-bold">Inject Leaderboard Entry</p>
-                  <p className="text-[10px] text-white/40 mt-1">Add fake entry to leaderboard</p>
+                  <p className="text-[10px] text-white/40 mt-1">Add sample entry to leaderboard</p>
                 </button>
                 <button onClick={handleInjectReferral} className="p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl hover:bg-white/10 transition cursor-pointer text-left">
                   <Gift className="w-5 h-5 text-pink-400 mb-2" />
-                  <p className="text-xs font-bold">Inject Fake Referral</p>
-                  <p className="text-[10px] text-white/40 mt-1">Create a simulated referral record</p>
+                  <p className="text-xs font-bold">Inject Sample Referral</p>
+                  <p className="text-[10px] text-white/40 mt-1">Create a sample referral record</p>
                 </button>
                 <div className="p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl">
                   <p className="text-xs font-bold mb-2 flex items-center gap-2"><Award className="w-4 h-4 text-yellow-400" /> Award Points</p>

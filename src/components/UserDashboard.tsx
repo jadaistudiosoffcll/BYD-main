@@ -596,7 +596,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                   {rewardsList.map(item => (
                     <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col">
                       <div className="aspect-video bg-white/5 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                        {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Gift className="w-8 h-8 text-slate-600" />}
+                        {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : <Gift className="w-8 h-8 text-slate-600" />}
                       </div>
                       <div className="flex-1">
                         <h4 className="text-sm font-bold">{item.name}</h4>
@@ -1566,7 +1566,7 @@ function ShowroomGrid({ authToken, onNavigate }: { authToken: string; onNavigate
       {cars.map((car: any) => (
         <div key={car.id} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 hover:border-cyan-500/30 transition cursor-pointer group">
           <div className="aspect-video bg-white/5 rounded-lg mb-3 overflow-hidden flex items-center justify-center">
-            {car.image_url ? <img src={car.image_url} alt={car.model} className="w-full h-full object-cover group-hover:scale-105 transition" referrerPolicy="no-referrer" /> : <Car className="w-10 h-10 text-slate-500 group-hover:text-cyan-400 transition" />}
+            {car.image_url ? <img src={car.image_url} alt={car.model} className="w-full h-full object-cover group-hover:scale-105 transition" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : <Car className="w-10 h-10 text-slate-500 group-hover:text-cyan-400 transition" />}
           </div>
           <div className="text-sm font-bold">{car.model}</div>
           <div className="flex items-center justify-between mt-2">
@@ -1600,7 +1600,7 @@ function BlogPostsSection({ authToken, onNavigate }: { authToken: string; onNavi
         <div key={post.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-cyan-500/30 transition">
           {post.image_url && (
             <div className="h-40 overflow-hidden">
-              <img src={post.image_url} alt={post.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              <img src={post.image_url} alt={post.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             </div>
           )}
           <div className="p-5">

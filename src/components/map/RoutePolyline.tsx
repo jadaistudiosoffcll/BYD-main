@@ -52,7 +52,7 @@ export const RoutePolyline: React.FC<RoutePolylineProps> = ({
   ];
 
   // Calculations for remaining segments
-  const totalDistanceKm = 2400; // Total simulated distance
+  const totalDistanceKm = 2400; // Total route distance
   const currentDistanceKm = Math.round((routeIndex / 100) * totalDistanceKm);
   const remainingDistanceKm = totalDistanceKm - currentDistanceKm;
 

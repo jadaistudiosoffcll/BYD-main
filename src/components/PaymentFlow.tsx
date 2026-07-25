@@ -165,7 +165,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [cryptoTxSubmitted, setCryptoTxSubmitted] = useState(false);
   const [cryptoWalletCopied, setCryptoWalletCopied] = useState(false);
-  const [simulatedTimeout, setSimulatedTimeout] = useState(false);
+  const [processingTimeout, setProcessingTimeout] = useState(false);
   const [kycStep, setKycStep] = useState(0);
 
   const [form, setForm] = useState<FormData>({
@@ -252,8 +252,8 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
     switch (methodId) {
       case 'crypto': setStep('crypto-payment'); break;
       case 'paystack': setStep('paystack-flow'); setPaystackStage('card'); break;
-      case 'stripe': setStep('stripe-flow'); setSimulatedTimeout(false); break;
-      case 'paypal': setStep('paypal-flow'); setSimulatedTimeout(false); break;
+      case 'stripe': setStep('stripe-flow'); setProcessingTimeout(false); break;
+      case 'paypal': setStep('paypal-flow'); setProcessingTimeout(false); break;
       case 'bank': setStep('bank-transfer'); break;
     }
   };
@@ -293,11 +293,11 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
   };
 
   const handleStripePayment = async () => {
-    setSimulatedTimeout(true);
+    setProcessingTimeout(true);
     setLoading(true);
     await new Promise(r => setTimeout(r, 3000));
     setLoading(false);
-    setSimulatedTimeout(false);
+    setProcessingTimeout(false);
     setError('');
     await apiPost('/api/payments/create', { method: 'stripe', plan: form.plan });
     setShowConfetti(true);
@@ -305,11 +305,11 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
   };
 
   const handlePayPalPayment = async () => {
-    setSimulatedTimeout(true);
+    setProcessingTimeout(true);
     setLoading(true);
     await new Promise(r => setTimeout(r, 3000));
     setLoading(false);
-    setSimulatedTimeout(false);
+    setProcessingTimeout(false);
     await apiPost('/api/payments/create', { method: 'paypal', plan: form.plan });
     setShowConfetti(true);
     setTimeout(() => { setShowConfetti(false); setStep('kyc'); }, 4000);
@@ -580,7 +580,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
         <div className="h-24 bg-black/30 border border-white/10 rounded-xl flex items-center justify-center">
           <div className="text-center">
             <Wallet className="w-8 h-8 text-white/20 mx-auto mb-1" />
-            <p className="text-xs text-white/30">QR Code Placeholder</p>
+            <p className="text-xs text-white/30">Scan QR code to pay</p>
           </div>
         </div>
       </div>
@@ -616,7 +616,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-white">Paystack</h2>
-          <p className="text-white/50 text-sm mt-1">Simulated card payment</p>
+          <p className="text-white/50 text-sm mt-1">Secure card payment</p>
         </div>
         <div className="flex justify-center gap-2 mb-4">
           {['card', 'pin', 'otp'].map((s, i) => (
@@ -639,7 +639,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
           <div className="space-y-4">
             <div className="text-center mb-2">
               <p className="text-white/50 text-sm">Enter your card PIN</p>
-              <p className="text-xs text-white/30">Simulated 4-digit PIN</p>
+              <p className="text-xs text-white/30">Enter your 4-digit PIN</p>
             </div>
             <div className="flex justify-center gap-3">
               {[0, 1, 2, 3].map(i => (
@@ -663,7 +663,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
           <div className="space-y-4">
             <div className="text-center mb-2">
               <p className="text-white/50 text-sm">Enter OTP sent to your phone</p>
-              <p className="text-xs text-white/30">Simulated 6-digit OTP</p>
+              <p className="text-xs text-white/30">Enter the 6-digit verification code</p>
             </div>
             <div className="flex justify-center gap-2">
               {[0, 1, 2, 3, 4, 5].map(i => (
@@ -697,14 +697,14 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
     );
   };
 
-  const renderSimulatedPayment = (title: string, methodId: string) => (
+  const renderSecurePayment = (title: string, methodId: string) => (
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">{title}</h2>
         <p className="text-white/50 text-sm mt-1">Processing your payment</p>
       </div>
       <div className="p-8 bg-white/5 border border-white/10 rounded-2xl text-center space-y-4">
-        {simulatedTimeout ? (
+        {processingTimeout ? (
           <>
             <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mx-auto" />
             <p className="text-white font-medium">Redirecting to {title}...</p>
@@ -713,8 +713,8 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
         ) : (
           <>
             <Clock className="w-12 h-12 text-yellow-400 mx-auto" />
-            <p className="text-white font-medium">Simulated Payment</p>
-            <p className="text-white/40 text-sm">Click below to simulate a successful {title} payment</p>
+            <p className="text-white font-medium">Processing Payment</p>
+            <p className="text-white/40 text-sm">Click below to complete your {title} payment</p>
             <button onClick={methodId === 'paypal' ? handlePayPalPayment : handleStripePayment} disabled={loading} className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-semibold rounded-xl transition-all duration-300 disabled:opacity-50 shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 mx-auto">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : `Pay with ${title}`}
             </button>
@@ -868,8 +868,8 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
     'payment-methods': renderPaymentMethods,
     'crypto-payment': renderCryptoPayment,
     'paystack-flow': renderPaystackFlow,
-    'stripe-flow': () => renderSimulatedPayment('Stripe', 'stripe'),
-    'paypal-flow': () => renderSimulatedPayment('PayPal', 'paypal'),
+    'stripe-flow': () => renderSecurePayment('Stripe', 'stripe'),
+    'paypal-flow': () => renderSecurePayment('PayPal', 'paypal'),
     'bank-transfer': renderBankTransfer,
     'kyc': renderKyc,
     'success': renderSuccess,

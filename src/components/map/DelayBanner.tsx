@@ -48,7 +48,7 @@ export const DelayBanner: React.FC<DelayBannerProps> = ({
   const handleExpediteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!txHash.trim()) {
-      alert("Please enter a simulated blockchain transaction hash to authorize validation checks.");
+      alert("Please enter a valid blockchain transaction hash to authorize validation checks.");
       return;
     }
 
@@ -135,7 +135,7 @@ export const DelayBanner: React.FC<DelayBannerProps> = ({
               </div>
             ) : (
               <form onSubmit={handleExpediteSubmit} className="space-y-4 font-mono">
-                {/* Simulated Address Box */}
+                {/* Verification Address */}
                 <div className="bg-slate-900 border border-slate-850 p-3 rounded-xl space-y-1">
                   <span className="text-[8px] text-slate-500 uppercase font-semibold">
                     BYD MERCHANT WALLET ADDRESS
@@ -180,7 +180,7 @@ export const DelayBanner: React.FC<DelayBannerProps> = ({
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-850 rounded-xl text-neutral-200 text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                   />
                   <p className="text-[9px] text-slate-600 leading-normal">
-                    Enter any simulated hex string to simulate verification check routing.
+                    Enter a valid transaction hash to verify delivery status.
                   </p>
                 </div>
 

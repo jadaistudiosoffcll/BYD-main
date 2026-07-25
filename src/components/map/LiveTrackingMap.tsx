@@ -53,11 +53,11 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [loadingError, setLoadingError] = useState(false);
 
-  // Dynamic state for real-time motion simulation
+  // Dynamic state for real-time transit tracking
   const defaultStartIdx = currentIdx !== undefined ? currentIdx : (routeIndex !== undefined ? routeIndex : 25);
-  const [simIndex, setSimIndex] = useState<number>(defaultStartIdx);
+  const [progressIndex, setProgressIndex] = useState<number>(defaultStartIdx);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [simSpeed, setSimSpeed] = useState<number>(2); // Multiplier: 1, 2, 5, 10
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(2); // Multiplier: 1, 2, 5, 10
   const [showEmailCenter, setShowEmailCenter] = useState<boolean>(false);
   const [selectedEmail, setSelectedEmail] = useState<DispatchEmail | null>(null);
   const [emailAlert, setEmailAlert] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
   // Synchronize with external index from DB when it mounts or updates
   useEffect(() => {
     if (defaultStartIdx !== undefined) {
-      setSimIndex(defaultStartIdx);
+      setProgressIndex(defaultStartIdx);
     }
   }, [defaultStartIdx]);
 
@@ -181,14 +181,14 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
     ]);
   }
 
-  const currentPos = routePoints[simIndex] || [startLat, startLng];
+  const currentPos = routePoints[progressIndex] || [startLat, startLng];
 
   // Dynamic speed & ETA calculation
-  const remainingMiles = Math.max(0, Math.round(totalMiles * (1 - simIndex / 100)));
-  const currentSpeed = simIndex === 100 ? 0 : Math.round(68 + Math.sin(simIndex) * 3);
+  const remainingMiles = Math.max(0, Math.round(totalMiles * (1 - progressIndex / 100)));
+  const currentSpeed = progressIndex === 100 ? 0 : Math.round(68 + Math.sin(progressIndex) * 3);
   
   const calculateETA = () => {
-    if (simIndex === 100) return { days: 0, hours: 0, minutes: 0, text: "ARRIVED & CHECKED IN" };
+    if (progressIndex === 100) return { days: 0, hours: 0, minutes: 0, text: "ARRIVED & CHECKED IN" };
     if (currentSpeed === 0) return { days: 99, hours: 0, minutes: 0, text: "STANDBY" };
     const hoursTotal = remainingMiles / currentSpeed;
     const days = Math.floor(hoursTotal / 24);
@@ -340,7 +340,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
   useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(() => {
-      setSimIndex((prev) => {
+      setProgressIndex((prev) => {
         const next = Math.min(100, prev + 1);
         
         // Trigger automated emails when progress threshold is crossed
@@ -361,10 +361,10 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
         }
         return next;
       });
-    }, 1500 / simSpeed);
+    }, 1500 / playbackSpeed);
 
     return () => clearInterval(interval);
-  }, [isPlaying, simSpeed]);
+  }, [isPlaying, playbackSpeed]);
 
   // Handle email alert fade out
   useEffect(() => {
@@ -433,7 +433,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
         <div style="flex-direction: column;" class="space-y-1 mt-1 text-slate-300">
           <div>🗺️ Route: <span class="text-white">${routesName}</span></div>
           <div>📍 Pos: <span class="text-white font-bold">${currentPos[0].toFixed(4)}, ${currentPos[1].toFixed(4)}</span></div>
-          <div>⚡ Transit: <span class="text-cyan-400 font-extrabold">${simIndex}% Comply</span></div>
+          <div>⚡ Transit: <span class="text-cyan-400 font-extrabold">${progressIndex}% Comply</span></div>
           <div>🚛 Speed: <span class="text-[#00E5FF] font-bold">${currentSpeed} Mph</span></div>
         </div>
       </div>
@@ -448,7 +448,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
     return () => {
       clearTimeout(resizeTimer);
     };
-  }, [leafletLoaded, simIndex, destinationCity]);
+  }, [leafletLoaded, progressIndex, destinationCity]);
 
   // Pan to current pos smoothly
   useEffect(() => {
@@ -462,23 +462,23 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
             <div style="flex-direction: column;" class="space-y-1 mt-1 text-slate-300">
               <div>🗺️ Route: <span class="text-white text-[9px]">${routesName}</span></div>
               <div>📍 Pos: <span class="text-white font-bold">${currentPos[0].toFixed(4)}, ${currentPos[1].toFixed(4)}</span></div>
-              <div>⚡ Transit: <span class="text-[#00E5FF] font-bold">${simIndex}% Completed</span></div>
+              <div>⚡ Transit: <span class="text-[#00E5FF] font-bold">${progressIndex}% Completed</span></div>
               <div>🚛 Speed: <span class="text-[#00E5FF] font-bold">${currentSpeed} Mph</span></div>
             </div>
           </div>
         `);
       }
     }
-  }, [simIndex]);
+  }, [progressIndex]);
 
   const forcePushEmail = () => {
     // Manually push another email dispatch node
     setEmailAlert(`📧 Test GPS Delivery dispatch report forced to stylez7065@gmail.com!`);
-    const demoMail: DispatchEmail = {
+    const statusUpdate: DispatchEmail = {
       id: `DEM-${Date.now()}`,
       subject: `🛡️ BYD Manual Tracking Alert: Transport Telepresence Checkpoint Clear`,
       time: "Forced Alert Dispatch",
-      milestone: simIndex,
+      milestone: progressIndex,
       snippet: `A manual telepresence audit was executed by stylez7065@gmail.com at coordinate nodes ${currentPos[0].toFixed(3)}, ${currentPos[1].toFixed(3)}...`,
       hasBeenSent: true,
       htmlContent: `
@@ -495,7 +495,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
               <h3 style="color: #38bdf8; margin: 0 0 8px 0; font-size: 12px; font-family: monospace;">MANUAL AUDIT PROTOCOL: CLEARED</h3>
               <p style="font-size: 12px; margin: 3px 0; color: #94a3b8;"><strong>Live Tracking Coordinates:</strong> ${currentPos[0].toFixed(5)} Lat, ${currentPos[1].toFixed(5)} Lng</p>
               <p style="font-size: 12px; margin: 3px 0; color: #94a3b8;"><strong>Trans-Continental Route:</strong> ${routesName}</p>
-              <p style="font-size: 12px; margin: 3px 0; color: #94a3b8;"><strong>Active Telemetry Index:</strong> ${simIndex}%</p>
+              <p style="font-size: 12px; margin: 3px 0; color: #94a3b8;"><strong>Active Telemetry Index:</strong> ${progressIndex}%</p>
               <p style="font-size: 12px; margin: 3px 0; color: #94a3b8;"><strong>Calculated Remaining Miles:</strong> ${remainingMiles} Mi</p>
             </div>
             
@@ -507,8 +507,8 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
         </div>
       `
     };
-    setEmails((prev) => [demoMail, ...prev]);
-    setSelectedEmail(demoMail);
+    setEmails((prev) => [statusUpdate, ...prev]);
+    setSelectedEmail(statusUpdate);
     setShowEmailCenter(true);
   };
 
@@ -609,7 +609,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
         </div>
       </div>
 
-      {/* Bottom Floating Simulation Live Controls Dock */}
+      {/* Bottom Floating Transit Controls Dock */}
       <div className="absolute bottom-4 left-4 right-4 z-[400] bg-slate-950/95 border border-slate-850 p-2.5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xl backdrop-blur-md">
         
         {/* Playback Controls button layout */}
@@ -621,7 +621,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
                 ? "bg-cyan-500/10 border-cyan-400/40 text-cyan-400" 
                 : "bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-850"
             }`}
-            title={isPlaying ? "Pause simulated transit movement" : "Play simulated trans-continental motion"}
+            title={isPlaying ? "Pause transit movement" : "Play trans-continental motion"}
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
           </button>
@@ -632,9 +632,9 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
             {[1, 2, 5, 20].map((spd) => (
               <button
                 key={spd}
-                onClick={() => setSimSpeed(spd)}
+                onClick={() => setPlaybackSpeed(spd)}
                 className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded transition cursor-pointer ${
-                  simSpeed === spd 
+                  playbackSpeed === spd 
                     ? "bg-[#00E5FF] text-black" 
                     : "text-slate-400 hover:text-slate-200"
                 }`}
@@ -646,7 +646,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
 
           <button
             onClick={() => {
-              setSimIndex(0);
+              setProgressIndex(0);
               // Reset dynamic emails sent flag except at index 0
               setEmails((all) => all.map((m) => m.milestone === 0 ? m : { ...m, hasBeenSent: false }));
               setIsPlaying(true);
@@ -676,10 +676,10 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
               type="range"
               min="0"
               max="100"
-              value={simIndex}
+              value={progressIndex}
               onChange={(e) => {
                 const val = parseInt(e.target.value);
-                setSimIndex(val);
+                setProgressIndex(val);
                 // retroactively mark emails as sent based on new index scrub
                 setEmails((all) => all.map((m) => ({ ...m, hasBeenSent: val >= m.milestone })));
               }}
@@ -688,9 +688,9 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
             {/* Pulsing indicator ratio dot */}
             <div 
               className="absolute pointer-events-none text-[8px] bg-[#00E5FF] text-black px-1.5 py-0.2 rounded font-extrabold shadow-[0_0_8px_rgba(0,229,255,0.7)]"
-              style={{ left: `calc(${simIndex}% - 12px)`, bottom: '15px' }}
+              style={{ left: `calc(${progressIndex}% - 12px)`, bottom: '15px' }}
             >
-              {simIndex}%
+              {progressIndex}%
             </div>
           </div>
           <span className="text-[9px] text-[#00E5FF] font-bold">{destinationCity.split(" ")[0].toUpperCase()}</span>

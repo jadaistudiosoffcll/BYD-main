@@ -94,7 +94,7 @@ export const VehiclesPage: React.FC<VehiclesPageProps> = ({ onNavigate, id }) =>
         {/* Owner reviews section block */}
         <OwnerReviews />
 
-        {/* Simulated press news milstone dispatches feed */}
+        {/* Press news milestone dispatches feed */}
         <BYDNewsFeed />
 
         {/* Price Comparison Section */}

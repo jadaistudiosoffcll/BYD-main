@@ -69,10 +69,11 @@ export const LiveWebcamGrid: React.FC<LiveWebcamGridProps> = ({ authToken }) => 
       setTimestamp(now.toLocaleString("en-US", { hour12: false }));
     }, 1000);
 
-    // Fetch dynamic cams from database if available
-    fetch("/api/webcams")
+    // Fetch webcams from authenticated endpoint
+    fetch("/api/webcams/available", { headers: { Authorization: `Bearer ${authToken}` } })
       .then((res) => {
         if (res.ok) return res.json();
+        if (res.status === 403) throw new Error("ACCESS_DENIED");
         throw new Error();
       })
       .then((data) => {
@@ -81,8 +82,12 @@ export const LiveWebcamGrid: React.FC<LiveWebcamGridProps> = ({ authToken }) => 
           setSelectedCam(data[0]);
         }
       })
-      .catch(() => {
-        // fallback to default compiled array
+      .catch((e) => {
+        if (e.message === "ACCESS_DENIED") {
+          setSources([]);
+          setSelectedCam(null);
+        }
+        // fallback to default compiled array for demo
       });
 
     return () => clearInterval(timer);
@@ -106,6 +111,13 @@ export const LiveWebcamGrid: React.FC<LiveWebcamGridProps> = ({ authToken }) => 
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-6" id="webcam-grid-module">
+      {sources.length === 0 && (
+        <div className="text-center py-12 space-y-3">
+          <ShieldAlert className="w-12 h-12 text-amber-400 mx-auto" />
+          <h3 className="text-sm font-bold text-white">Webcam Access Restricted</h3>
+          <p className="text-xs text-white/50 max-w-md mx-auto">Live facility webcams are available after completing a vehicle purchase, rental, or activating an Elite membership. Complete your first transaction to unlock 24/7 telemetry feeds.</p>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-slate-800 pb-3 gap-3">
         <div>
           <span className="text-[10px] uppercase font-mono tracking-widest text-[#00E5FF] font-bold block">
@@ -117,7 +129,7 @@ export const LiveWebcamGrid: React.FC<LiveWebcamGridProps> = ({ authToken }) => 
         </div>
         <div className="flex items-center gap-2 font-mono text-[9px] bg-slate-950 px-2.5 py-1 rounded border border-slate-850 self-start text-slate-400">
           <Terminal className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-          <span>Active CCTV Feeds: {sources.filter((c) => c.is_active === 1).length}</span>
+          <span>Active CCTV Feeds: {sources.length > 0 ? sources.filter((c) => c.is_active === 1).length : 0}</span>
         </div>
       </div>
 

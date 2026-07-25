@@ -221,16 +221,21 @@ export async function getDb() {
 
   try { await dbInstance!.exec(`ALTER TABLE map_tracking ADD COLUMN car_id INTEGER`); } catch {}
 
+  // Disable non-crypto payment methods (crypto only)
+  try { await dbInstance!.run("UPDATE payment_methods SET enabled = 0, processing_time = 'Currently unavailable' WHERE method != 'crypto'"); } catch {}
+  // Ensure crypto min deposit is $150
+  try { await dbInstance!.run("UPDATE payment_methods SET min_deposit = 150 WHERE method = 'crypto' AND min_deposit < 150"); } catch {}
+
   // Seed all data with error handling
   try {
   const pmCount = await dbInstance!.get('SELECT COUNT(*) as count FROM payment_methods');
   if (pmCount && pmCount.count === 0) {
     const methods = [
-      { method: 'crypto', enabled: 1, recommended: 1, processing_time: '0-5 min', badge_color: 'emerald', fee_percent: 1, crypto_bonus_percent: 5, min_deposit: 10, wallet_address: '0xBYDHorizonEscrowWallet2026', gas_fee: 2 },
-      { method: 'paystack', enabled: 1, recommended: 0, processing_time: '1-3 business days', badge_color: 'yellow', fee_percent: 2.5, min_deposit: 10, gas_fee: 0 },
-      { method: 'stripe', enabled: 1, recommended: 0, processing_time: '1-3 business days', badge_color: 'yellow', fee_percent: 2.9, min_deposit: 10, gas_fee: 0 },
-      { method: 'paypal', enabled: 1, recommended: 0, processing_time: '1-3 business days', badge_color: 'yellow', fee_percent: 3.5, min_deposit: 10, gas_fee: 0 },
-      { method: 'bank_transfer', enabled: 1, recommended: 0, processing_time: '3-5 business days', badge_color: 'yellow', fee_percent: 0, min_deposit: 100, gas_fee: 0 }
+      { method: 'crypto', enabled: 1, recommended: 1, processing_time: '0-5 min', badge_color: 'emerald', fee_percent: 1, crypto_bonus_percent: 5, min_deposit: 150, wallet_address: '0xBYDHorizonEscrowWallet2026', gas_fee: 2 },
+      { method: 'paystack', enabled: 0, recommended: 0, processing_time: 'Currently unavailable', badge_color: 'red', fee_percent: 2.5, min_deposit: 150, gas_fee: 0 },
+      { method: 'stripe', enabled: 0, recommended: 0, processing_time: 'Currently unavailable', badge_color: 'red', fee_percent: 2.9, min_deposit: 150, gas_fee: 0 },
+      { method: 'paypal', enabled: 0, recommended: 0, processing_time: 'Currently unavailable', badge_color: 'red', fee_percent: 3.5, min_deposit: 150, gas_fee: 0 },
+      { method: 'bank_transfer', enabled: 0, recommended: 0, processing_time: 'Currently unavailable', badge_color: 'red', fee_percent: 0, min_deposit: 150, gas_fee: 0 }
     ];
     for (const m of methods) {
       await dbInstance!.run(

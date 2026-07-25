@@ -19,7 +19,7 @@ export const ArtOfBYDGallery: React.FC = () => {
       title: "Dragon Face Aesthetics (BYD Seal)",
       category: "DESIGN VISION",
       description: "Combining historic cultural inspiration with cutting-edge active aerodynamics, creating an instantly recognizable dynamic expression.",
-      imageUrl: "/src/assets/images/byd_seal_exterior_1780822401800.png",
+      imageUrl: "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80",
       techStat: "Wolfgang Egger Vision"
     },
     {
@@ -27,7 +27,7 @@ export const ArtOfBYDGallery: React.FC = () => {
       title: "Sustainable Oceanic Core (BYD Dolphin)",
       category: "ECOLOGICAL ETHICS",
       description: "Crafting interior upholstery from recycled oceanic plastics and vegan biosynthetics, translating responsibility into pristine luxury comfort.",
-      imageUrl: "/src/assets/images/byd_dolphin_interior_1780822467831.png",
+      imageUrl: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
       techStat: "100% Recyclable Fibers"
     },
     {
@@ -35,7 +35,7 @@ export const ArtOfBYDGallery: React.FC = () => {
       title: "Cell-To-Body (CTB) Fusion (BYD Atto 3)",
       category: "STRUCTURAL ENGINEERING",
       description: "The battery pack serves as the structural underbody of the vehicle. Delivering a massive 50% increase in cabin space and torsional rigidity.",
-      imageUrl: "/src/assets/images/byd_atto_interior_1780822450693.png",
+      imageUrl: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
       techStat: "+50% Torsional Rigidity"
     },
     {
@@ -43,7 +43,7 @@ export const ArtOfBYDGallery: React.FC = () => {
       title: "Luxury Lounge Architecture (BYD Han)",
       category: "INTERIOR COMFORT",
       description: "Integrating high-definition tactile leather touchpoints with Nappa seats, complete with dynamic surrounding acoustic lighting profiles.",
-      imageUrl: "/src/assets/images/byd_han_interior_1780822431940.png",
+      imageUrl: "https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?auto=format&fit=crop&w=800&q=80",
       techStat: "Premium Surround Audio"
     },
     {
@@ -51,7 +51,7 @@ export const ArtOfBYDGallery: React.FC = () => {
       title: "Digital Cockpit Interface (BYD Seal)",
       category: "SMART LINK CONNECT",
       description: "A futuristic wrap-around driving setup featuring rotating center touchscreens, intelligent voice assists, and dynamic driver nodes.",
-      imageUrl: "/src/assets/images/byd_seal_interior_1780822416415.png",
+      imageUrl: "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80",
       techStat: "DiLink 4.0 Connectivity"
     }
   ];

@@ -439,6 +439,62 @@ app.post("/api/payments/proof", authenticateUser, async (req: any, res) => {
   res.json({ success: true, message: "Payment proof uploaded." });
 });
 
+// ==================== ELITE MEMBERSHIP ====================
+app.get("/api/elite/plans", async (req: any, res) => {
+  const plans = [
+    { id: "silver", name: "Silver Elite", price: 299, monthly_price: 299, period: "monthly", benefits: ["Priority delivery", "5% vehicle discount", "Dedicated support", "Monthly bonus points"], color: "#C0C0C0" },
+    { id: "gold", name: "Gold Elite", price: 599, monthly_price: 599, period: "monthly", benefits: ["All Silver benefits", "10% vehicle discount", "Free insurance upgrade", "VIP event access", "Quarterly bonus"], color: "#FFD700" },
+    { id: "platinum", name: "Platinum Elite", price: 999, monthly_price: 999, period: "monthly", benefits: ["All Gold benefits", "15% vehicle discount", "Free premium insurance", "Personal account manager", "Annual bonus", "Presidents Club eligibility"], color: "#E5E4E2" },
+  ];
+  res.json(plans);
+});
+
+app.post("/api/elite/subscribe", authenticateUser, async (req: any, res) => {
+  const { planId, transactionHash } = req.body;
+  if (!planId || !transactionHash) return res.status(400).json({ error: "Plan and transaction hash required." });
+  const db = await getDb();
+  const user = await db.get("SELECT kyc_status, balance FROM users WHERE id = ?", [req.user.id]);
+  if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC required for Elite membership.", kycRequired: true });
+  const plans: Record<string, { price: number; name: string }> = { silver: { price: 299, name: "Silver Elite" }, gold: { price: 599, name: "Gold Elite" }, platinum: { price: 999, name: "Platinum Elite" } };
+  const plan = plans[planId];
+  if (!plan) return res.status(400).json({ error: "Invalid plan." });
+  if ((user.balance || 0) < plan.price) return res.status(403).json({ error: `Insufficient balance. You need $${plan.price}. Please deposit first.`, depositRequired: true });
+  await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash) VALUES (?,?,?,?,'pending','elite_membership',?)", [req.user.id, plan.price, 'USDT', 'crypto', transactionHash]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'membership', 'Elite Subscription Submitted', 'Your ' || ? || ' subscription ($' || ? || '/mo) is pending admin confirmation.')", [req.user.id, plan.name, plan.price]);
+  res.json({ success: true, message: "Elite subscription submitted. Awaiting admin confirmation.", plan: plan.name, price: plan.price });
+});
+
+// ==================== WEBCAMS (paywall) ====================
+app.get("/api/webcams/available", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const user = await db.get("SELECT membership_active, membership_tier FROM users WHERE id = ?", [req.user.id]);
+  const hasShipped = await db.get("SELECT id FROM rental_orders WHERE user_id = ? AND status IN ('confirmed','dispatched','in_transit','delivered') LIMIT 1", [req.user.id]);
+  const hasPurchase = await db.get("SELECT id FROM payments WHERE user_id = ? AND type IN ('purchase','installment') AND status = 'confirmed' LIMIT 1", [req.user.id]);
+  const canView = user?.membership_active || hasShipped || hasPurchase;
+  if (!canView) return res.status(403).json({ error: "Webcams available after purchase or membership activation.", requiresPurchase: true });
+  const webcams = await db.all("SELECT * FROM webcam_sources WHERE is_active = 1");
+  res.json(webcams);
+});
+
+app.get("/api/admin/elite-requests", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const requests = await db.all("SELECT p.*, u.name as user_name, u.email as user_email FROM payments p JOIN users u ON p.user_id = u.id WHERE p.type = 'elite_membership' ORDER BY p.id DESC");
+  res.json(requests);
+});
+
+app.post("/api/admin/elite/:payId/confirm", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const payment = await db.get("SELECT * FROM payments WHERE id = ? AND type = 'elite_membership'", [req.params.payId]);
+  if (!payment) return res.status(404).json({ error: "Elite subscription request not found." });
+  if (payment.status === 'confirmed') return res.json({ success: true, message: "Already confirmed." });
+  await db.run("UPDATE payments SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [payment.id]);
+  const expiry = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
+  await db.run("UPDATE users SET membership_active = 1, membership_expiry = ?, membership_tier = 'elite', balance = balance - ? WHERE id = ?", [expiry, payment.amount, payment.user_id]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'membership', 'Elite Membership Activated', 'Your Elite membership is now active until ' || ? || '.')", [payment.user_id, expiry]);
+  await logAdminAction("Confirmed elite subscription", `Payment ID ${payment.id} - User ${payment.user_id}`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
 // ==================== DASHBOARD ====================
 
 app.get("/api/dashboard/summary", authenticateUser, async (req: any, res) => {
@@ -498,7 +554,10 @@ app.get("/api/dashboard/summary", authenticateUser, async (req: any, res) => {
     presidentClub: { invited: user.is_president_club === 1, referralCount: reffCount.count || 0 },
     carbonOffset: { treesPlanted: carbonTotal?.total_trees || 0, lbsSaved: carbonTotal?.total_lbs || 0 },
     lotteryEntries: lotteryCount?.total_tickets || 0,
-    paymentMethods: await db.all("SELECT * FROM payment_methods WHERE enabled = 1")
+    paymentMethods: await db.all("SELECT * FROM payment_methods WHERE enabled = 1"),
+    activeRentals: await db.all("SELECT ro.*, c.model as car_model, c.image_url as car_image FROM rental_orders ro JOIN cars c ON ro.car_id = c.id WHERE ro.user_id = ? AND ro.status IN ('confirmed','dispatched','in_transit') ORDER BY ro.id DESC", [req.user.id]),
+    rentalHistory: await db.all("SELECT ro.*, c.model as car_model FROM rental_orders ro JOIN cars c ON ro.car_id = c.id WHERE ro.user_id = ? ORDER BY ro.id DESC LIMIT 10", [req.user.id]),
+    elitePlans: [{ id: "silver", name: "Silver Elite", price: 299 }, { id: "gold", name: "Gold Elite", price: 599 }, { id: "platinum", name: "Platinum Elite", price: 999 }]
   });
 });
 
@@ -875,6 +934,10 @@ app.post("/api/admin/rentals/:orderId/status", authenticateAdmin, async (req: an
   const order = await db.get("SELECT * FROM rental_orders WHERE id = ?", [req.params.orderId]);
   if (order) {
     await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'rental', 'Order Update', 'Your rental order ' || ? || ' is now: ' || ? || '.')", [order.user_id, order.order_number, status]);
+    // Initialize tracking when order is confirmed or dispatched
+    if (status === 'confirmed' || status === 'dispatched' || status === 'in_transit') {
+      await db.run("INSERT OR IGNORE INTO map_tracking (user_id, car_id, current_lat, current_lng, route_index, total_stops, delays_encountered, expedite_paid, last_updated) VALUES (?, ?, 33.7431, -118.2673, 0, 100, 0, 0, CURRENT_TIMESTAMP)", [order.user_id, order.car_id]);
+    }
   }
   res.json({ success: true });
 });
@@ -1489,10 +1552,11 @@ app.get("/api/admin/webcams", authenticateAdmin, async (req: any, res) => {
 });
 
 app.post("/api/admin/webcams", authenticateAdmin, async (req: any, res) => {
-  const { name, video_url, thumbnail_url } = req.body;
-  if (!name || !video_url) return res.status(400).json({ error: "Name and video URL required." });
+  const { name, video_url, stream_url, thumbnail_url } = req.body;
+  const url = video_url || stream_url;
+  if (!name || !url) return res.status(400).json({ error: "Name and video URL required." });
   const db = await getDb();
-  await db.run("INSERT INTO webcam_sources (name, video_url, thumbnail_url) VALUES (?,?,?)", [name, video_url, thumbnail_url || '']);
+  await db.run("INSERT INTO webcam_sources (name, video_url, thumbnail_url) VALUES (?,?,?)", [name, url, thumbnail_url || '']);
   res.json({ success: true });
 });
 

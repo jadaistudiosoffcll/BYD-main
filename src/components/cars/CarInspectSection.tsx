@@ -49,7 +49,7 @@ export const CarInspectSection: React.FC<{ model?: string }> = ({ model }) => {
       drag: "0.219 Cd",
       basePrice: "$45,900",
       exteriors: {
-        0: "/src/assets/images/byd_seal_exterior_1780822401800.png",
+        0: "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80",
         90: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=800&q=80",
         180: "https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=800&q=80",
         270: "https://images.unsplash.com/photo-1542362567-b07eac79094d?auto=format&fit=crop&w=800&q=80"
@@ -57,7 +57,7 @@ export const CarInspectSection: React.FC<{ model?: string }> = ({ model }) => {
       cabin: {
         name: "Oceanic Command Cabin",
         description: "Intricately curved dashboard layout resembling ocean waves, finished with double-stitched eco-Alcantara and adaptive crystal trim.",
-        imageUrl: "/src/assets/images/byd_seal_interior_1780822416415.png",
+        imageUrl: "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=800&q=80",
         stats: { Layout: "Driver Centric", Soundproof: "Double Glazed Acoustic Glass", Materials: "Sustainable Recycled Composite" }
       },
       wheels: {
@@ -96,7 +96,7 @@ export const CarInspectSection: React.FC<{ model?: string }> = ({ model }) => {
       cabin: {
         name: "Fitness-Inspired Tech Cabin",
         description: "The gym-inspired interior featuring treaded gym patterns, guitar-string door pockets, and dumbell vents.",
-        imageUrl: "/src/assets/images/byd_atto_interior_1780822450693.png",
+        imageUrl: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
         stats: { Concept: "Wellness & Playful", Safety: "DiPilot L2 Driver Assistant", Atmosphere: "Multi-color Dynamic Ambient LEDs" }
       },
       wheels: {
@@ -135,7 +135,7 @@ export const CarInspectSection: React.FC<{ model?: string }> = ({ model }) => {
       cabin: {
         name: "Ocean-Flow Compact Cockpit",
         description: "Curved door-release toggles resembles dolphin flippers. Ergonomically optimized dashboard keeps small tools accessible in any city.",
-        imageUrl: "/src/assets/images/byd_dolphin_interior_1780822467831.png",
+        imageUrl: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
         stats: { Width: "Comfort space maximized", Cargo: "345L flexible boot storage", Lighting: "Warm Sky Glow panorama LEDs" }
       },
       wheels: {
@@ -174,7 +174,7 @@ export const CarInspectSection: React.FC<{ model?: string }> = ({ model }) => {
       cabin: {
         name: "Imperial Luxury Lounge",
         description: "Bespoke executive cabin adorned with genuine hand-polished European rosewood, solid aluminum speaker grilles, and hand-stitched leather panels.",
-        imageUrl: "/src/assets/images/byd_han_interior_1780822431940.png",
+        imageUrl: "https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?auto=format&fit=crop&w=800&q=80",
         stats: { Trim: "Genuine Rosewood", Audio: "Dynaudio 12-Speaker 775W Sound", Ambiance: "128-Color customizable fiber lights" }
       },
       wheels: {
@@ -213,7 +213,7 @@ export const CarInspectSection: React.FC<{ model?: string }> = ({ model }) => {
       cabin: {
         name: "Grand Horizon Family Space",
         description: "Spacious three-row luxury seating layout configured with double-stitched eco-luxe microfibres and an integrated ion air filtration purifier.",
-        imageUrl: "/src/assets/images/byd_han_interior_1780822431940.png",
+        imageUrl: "https://images.unsplash.com/photo-1616422285623-13ff0162193c?auto=format&fit=crop&w=800&q=80",
         stats: { Capacity: "7-Passenger 3-Row", Filtration: "PM2.5 Active Ion Purifier", Panoramic: "Skyline Dual-pane Electric Moonroof" }
       },
       wheels: {
