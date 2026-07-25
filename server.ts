@@ -573,6 +573,310 @@ app.post("/api/tracking/expedite", authenticateUser, async (req: any, res) => {
   res.json({ success: true, message: "Expedite fee paid. Priority routing activated." });
 });
 
+// ==================== TRON AUTO-VERIFY ====================
+const TRONGRID_API = "https://api.trongrid.io/v1";
+
+app.post("/api/payments/verify-crypto", authenticateUser, async (req: any, res) => {
+  const { paymentId } = req.body;
+  if (!paymentId) return res.status(400).json({ error: "Payment ID required." });
+  const db = await getDb();
+  const payment = await db.get("SELECT * FROM payments WHERE id = ? AND user_id = ? AND status = 'pending'", [paymentId, req.user.id]);
+  if (!payment) return res.status(404).json({ error: "Pending payment not found." });
+  
+  // Attempt to verify via TronGrid API
+  try {
+    const txHash = payment.transaction_hash;
+    const verifyUrl = `${TRONGRID_API}/transactions/${txHash}`;
+    const response = await fetch(verifyUrl, {
+      headers: { "Accept": "application/json", "TRON-PRO-API-KEY": process.env.TRONGRID_API_KEY || "" }
+    });
+    if (response.ok) {
+      const data = await response.json() as any;
+      if (data.ret && data.ret[0]?.contractRet === "SUCCESS") {
+        // Auto-confirm the payment
+        await db.run("UPDATE payments SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [payment.id]);
+        const points = Math.floor(payment.amount * 10);
+        await db.run("UPDATE users SET horizon_points = horizon_points + ?, balance = balance + ? WHERE id = ?", [points, payment.amount, payment.user_id]);
+        await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Payment Auto-Verified', 'Your deposit of $' || ? || ' has been verified and credited.')", [payment.user_id, payment.amount]);
+        await logAdminAction("Auto-verified payment", `Payment ID ${payment.id} via TronGrid`, req.ip, 0);
+        return res.json({ success: true, verified: true, message: "Payment verified and credited." });
+      }
+    }
+  } catch (e) { /* TronGrid unavailable, fall through */ }
+  
+  // If auto-verify fails, mark as awaiting manual review
+  res.json({ success: true, verified: false, message: "Awaiting admin manual confirmation." });
+});
+
+// ==================== AI CUSTOMER SUPPORT ====================
+const BYD_KNOWLEDGE = {
+  models: {
+    "seal": { name: "BYD Seal", price: 45900, range: "323mi", power: "530HP", accel: "3.8s", desc: "High-performance ocean-inspired sport sedan with dual motor AWD." },
+    "han": { name: "BYD Han", price: 52500, range: "375mi", power: "517HP", accel: "3.9s", desc: "Executive flagship luxury sedan with Nappa leather and Dynaudio audio." },
+    "atto3": { name: "BYD Atto 3", price: 38900, range: "260mi", power: "201HP", accel: "7.3s", desc: "Bold urban electric SUV crossover with gym-inspired interior." },
+    "dolphin": { name: "BYD Dolphin", price: 29900, range: "211mi", power: "94HP", accel: "7.0s", desc: "Agile, playful urban commuter hatchback with ocean-flow design." },
+    "tang": { name: "BYD Tang", price: 58000, range: "310mi", power: "509HP", accel: "4.4s", desc: "7-seater family luxury SUV with DiSus-C active suspension." },
+    "shark": { name: "BYD Shark", price: 55000, range: "280mi", power: "480HP", accel: "4.5s", desc: "Adventure-ready pickup truck with dual motor and V2L capability." },
+    "super9": { name: "BYD Super 9", price: 85000, range: "350mi", power: "680HP", accel: "2.9s", desc: "Hypercar with carbon fiber chassis and active aero." }
+  },
+  membership: {
+    "silver": { price: 299, benefits: ["Priority delivery", "5% discount", "Dedicated support", "Monthly bonus"] },
+    "gold": { price: 599, benefits: ["All Silver", "10% discount", "Free insurance upgrade", "VIP events", "Quarterly bonus"] },
+    "platinum": { price: 999, benefits: ["All Gold", "15% discount", "Free premium insurance", "Personal account manager", "Presidents Club"] }
+  },
+  policies: {
+    "payment": "We accept cryptocurrency (USDT, BTC, ETH) only. $150 minimum deposit. Admin confirms all deposits.",
+    "kyc": "KYC verification required before deposits, purchases, or rentals. Upload government ID + selfie.",
+    "insurance": "Basic $15/day ($50K coverage), Premium $30/day ($100K), Elite $60/day ($250K).",
+    "delivery": "Vehicle delivery within 7-14 business days after admin confirmation. Track via live GPS map.",
+    "referral": "Earn $50 per direct referral. Level 2 referrals earn $10. Level 3 earn $5.",
+    "rental": "Daily rental rates: Seal $150/day, Han $175/day, Atto 3 $120/day, Dolphin $95/day.",
+    "investment": "Stock Pool (20% APY), Expansion Fund (25% APY), Battery Tech (30% APY). Min $150.",
+    "refund": "Refund requests within 14 days. Crypto refunds to originating wallet.",
+    "elite": "Elite membership auto-renews monthly. Cancel 7 days before renewal."
+  },
+  company: {
+    "name": "BYD Horizon Club",
+    "tagline": "Own the future. Drive the present. Earn the difference.",
+    "founded": "2024",
+    "hq": "Shenzhen, China (BYD) / Los Angeles, USA (Horizon Club)",
+    "fleet_size": "25+ BYD models available",
+    "countries": "USA, UK, Germany, Nigeria, Kenya, Singapore, UAE, Australia, Brazil, China"
+  }
+};
+
+app.post("/api/ai/chat", authenticateUser, async (req: any, res) => {
+  const { message } = req.body;
+  if (!message) return res.status(400).json({ error: "Message required." });
+  const db = await getDb();
+  const user = await db.get("SELECT name, membership_tier, kyc_status, balance FROM users WHERE id = ?", [req.user.id]);
+  const lowerMsg = message.toLowerCase();
+  let reply = "";
+  let topic = "general";
+
+  // Greeting
+  if (lowerMsg.match(/^(hi|hello|hey|good morning|good afternoon|what's up)/)) {
+    reply = `Hello ${user?.name || 'there'}! Welcome to BYD Horizon Club. I'm your AI assistant. How can I help you today? I can help with vehicle info, pricing, payments, membership, insurance, investments, and more.`;
+    topic = "greeting";
+  }
+  // Vehicle queries
+  else if (lowerMsg.match(/(seal|han|atto|dolphin|tang|shark|super.?9|vehicle|car|model|fleet)/)) {
+    const modelKey = Object.keys(BYD_KNOWLEDGE.models).find(k => lowerMsg.includes(k));
+    if (modelKey) {
+      const m = BYD_KNOWLEDGE.models[modelKey as keyof typeof BYD_KNOWLEDGE.models];
+      reply = `${m.name}: $${m.price.toLocaleString()} | Range: ${m.range} | Power: ${m.power} | 0-60: ${m.accel}\n${m.desc}\n\nAvailable for purchase or daily rental. Want to know more about financing or rental rates?`;
+    } else {
+      reply = "Our fleet includes: BYD Seal ($45.9K), Han ($52.5K), Atto 3 ($38.9K), Dolphin ($29.9K), Tang ($58K), Shark ($55K), and Super 9 ($85K). Which model interests you?";
+    }
+    topic = "vehicles";
+  }
+  // Pricing / cost
+  else if (lowerMsg.match(/(price|cost|how much|expensive|cheap|afford|budget|finance|monthly|payment)/)) {
+    reply = "Our vehicles range from $29,900 (Dolphin) to $85,000 (Super 9). Monthly financing available. All purchases require a minimum $150 deposit via crypto. Admin confirms every payment. Want details on a specific model?";
+    topic = "pricing";
+  }
+  // Payment / deposit
+  else if (lowerMsg.match(/(deposit|pay|crypto|usdt|btc|eth|wallet|transaction|top.?up)/)) {
+    const balance = user?.balance || 0;
+    reply = `Your current balance: $${balance.toFixed(2)}. We accept USDT, BTC, and ETH. Minimum deposit: $150. Send crypto to the wallet address shown in your payment portal, then enter the transaction hash. Admin confirms all deposits within minutes.`;
+    topic = "payments";
+  }
+  // KYC
+  else if (lowerMsg.match(/(kyc|verify|verification|identity|id|selfie|passport|upload)/)) {
+    reply = `KYC Status: ${user?.kyc_status || 'not submitted'}. To verify: go to Dashboard → KYC tab. Upload government-issued ID (front + back), a selfie, and proof of address. Verification typically takes 24 hours. Required before any deposits or purchases.`;
+    topic = "kyc";
+  }
+  // Membership / Elite
+  else if (lowerMsg.match(/(membership|elite|silver|gold|platinum|subscribe|premium|vip)/)) {
+    const tier = user?.membership_tier || "standard";
+    reply = `Your current tier: ${tier.toUpperCase()}. Elite plans: Silver ($299/mo), Gold ($599/mo), Platinum ($999/mo). Benefits include priority delivery, discounts, free insurance, and exclusive events. Upgrade anytime from the Elite tab.`;
+    topic = "membership";
+  }
+  // Insurance
+  else if (lowerMsg.match(/(insurance|coverage|protect|damage|accident|claim)/)) {
+    reply = "Insurance options: Basic ($15/day, $50K coverage), Premium ($30/day, $100K coverage), Elite ($60/day, $250K coverage). Purchase after selecting a vehicle. Covers collision, theft, and weather damage.";
+    topic = "insurance";
+  }
+  // Investment
+  else if (lowerMsg.match(/(invest|stock|fund|apy|return|portfolio|battery tech|expansion)/)) {
+    reply = "Investment options: Stock Pool (20% APY, min $150), Expansion Fund (25% APY, min $500), Production Facilities (20% APY, min $1000), Charging Network (15% APY, min $250), Battery Tech Fund (30% APY, min $200). All require verified KYC.";
+    topic = "investments";
+  }
+  // Referral
+  else if (lowerMsg.match(/(referral|refer|invite|friend|earn|bonus|commission)/)) {
+    reply = `Your referral code: ${user ? 'check your Referrals tab' : 'N/A'}. Earn $50 per direct referral, $10 for level 2, $5 for level 3. Referred users must complete KYC and make a qualifying payment. Minimum $200 to withdraw.`;
+    topic = "referrals";
+  }
+  // Rental
+  else if (lowerMsg.match(/(rent|rental|book|booking|daily rate)/)) {
+    reply = "Daily rental rates: Seal $150/day, Han $175/day, Atto 3 $120/day, Dolphin $95/day, Tang $200/day. Insurance is mandatory (from $15/day). Select dates, delivery city, and extras. Balance is deducted upon admin confirmation.";
+    topic = "rentals";
+  }
+  // Tracking / delivery
+  else if (lowerMsg.match(/(track|delivery|where|shipping|transit|dispatch|eta)/)) {
+    reply = "After purchase or rental confirmation, your vehicle appears in the Tracking tab with live GPS. Admin updates delivery progress (0-100%). You'll receive notifications at each milestone. Average delivery: 7-14 business days.";
+    topic = "tracking";
+  }
+  // Contact / support
+  else if (lowerMsg.match(/(support|help|contact|agent|human|speak|talk|issue|problem|complaint)/)) {
+    reply = "I'm here to help with any questions! For complex issues, submit a ticket via the Support tab. Our team responds within 24 hours. You can also reach us via WhatsApp or Telegram from the footer links.";
+    topic = "support";
+  }
+  // Balance
+  else if (lowerMsg.match(/(balance|how much do i have|account|funds|money)/)) {
+    reply = `Your current balance: $${(user?.balance || 0).toFixed(2)}. Your Horizon Points: ${(user as any)?.horizon_points || 0}. Deposit crypto to add funds. Admin confirms all deposits.`;
+    topic = "balance";
+  }
+  // Default
+  else {
+    reply = "I can help with: vehicle info, pricing, payments, KYC verification, membership plans, insurance, investments, referrals, rentals, tracking, and account balance. What would you like to know?";
+    topic = "general";
+  }
+
+  // Log the conversation
+  await db.run("INSERT INTO chatbot_conversations (user_id, message, response) VALUES (?, ?, ?)", [req.user.id, message, reply]);
+  
+  res.json({ reply, topic });
+});
+
+app.get("/api/ai/chat/history", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const history = await db.all("SELECT * FROM chatbot_conversations WHERE user_id = ? ORDER BY id DESC LIMIT 50", [req.user.id]);
+  res.json(history.reverse());
+});
+
+// ==================== AI FRAUD DETECTION ====================
+app.get("/api/admin/fraud-alerts", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const alerts: any[] = [];
+  
+  // Check for multiple accounts from same IP
+  const ipUsers = await db.all("SELECT ip_address, COUNT(DISTINCT user_id) as count, GROUP_CONCAT(user_id) as user_ids FROM user_interactions WHERE ip_address IS NOT NULL GROUP BY ip_address HAVING count > 1");
+  for (const ip of ipUsers) {
+    alerts.push({ type: "multi_account", severity: "high", message: `${ip.count} accounts from IP ${ip.ip_address}`, user_ids: ip.user_ids, ip: ip.ip_address });
+  }
+  
+  // Check for rapid successive deposits
+  const rapidDeposits = await db.all("SELECT user_id, COUNT(*) as count FROM payments WHERE status = 'pending' AND created_at > datetime('now', '-1 hour') GROUP BY user_id HAVING count >= 3");
+  for (const rd of rapidDeposits) {
+    const user = await db.get("SELECT name, email FROM users WHERE id = ?", [rd.user_id]);
+    alerts.push({ type: "rapid_deposits", severity: "medium", message: `${rd.count} pending deposits in 1 hour from ${user?.name || 'unknown'}`, user_id: rd.user_id });
+  }
+  
+  // Check for unusually large deposits
+  const largeDeposits = await db.all("SELECT p.*, u.name as user_name FROM payments p JOIN users u ON p.user_id = u.id WHERE p.amount > 10000 AND p.status = 'pending'");
+  for (const ld of largeDeposits) {
+    alerts.push({ type: "large_deposit", severity: "medium", message: `$${ld.amount} deposit from ${ld.user_name} (ID: ${ld.user_id})`, user_id: ld.user_id, amount: ld.amount });
+  }
+  
+  // Check for users with blocked status making deposits
+  const blockedDeposits = await db.all("SELECT p.*, u.name as user_name FROM payments p JOIN users u ON p.user_id = u.id WHERE u.status = 'blocked' AND p.status = 'pending'");
+  for (const bd of blockedDeposits) {
+    alerts.push({ type: "blocked_user_deposit", severity: "critical", message: `Blocked user ${bd.user_name} attempting deposit`, user_id: bd.user_id });
+  }
+  
+  // Check for withdrawal patterns (balance < 0 after large withdrawal)
+  const suspiciousWithdrawals = await db.all("SELECT u.id, u.name, u.balance FROM users u WHERE u.balance < -100");
+  for (const sw of suspiciousWithdrawals) {
+    alerts.push({ type: "negative_balance", severity: "critical", message: `${sw.name} has negative balance: $${sw.balance}`, user_id: sw.id });
+  }
+  
+  res.json({ alerts, count: alerts.length, checked_at: new Date().toISOString() });
+});
+
+app.post("/api/admin/fraud-action", authenticateAdmin, async (req: any, res) => {
+  const { userId, action, reason } = req.body;
+  const db = await getDb();
+  if (action === 'block') {
+    await db.run("UPDATE users SET status = 'blocked' WHERE id = ?", [userId]);
+    await logAdminAction("Blocked user (fraud)", `User ${userId}: ${reason}`, req.ip, req.adminId);
+  } else if (action === 'flag') {
+    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'security', 'Account Flagged', 'Your account has been flagged for review. Please contact support.')", [userId]);
+    await logAdminAction("Flagged user (fraud)", `User ${userId}: ${reason}`, req.ip, req.adminId);
+  }
+  res.json({ success: true });
+});
+
+// ==================== KYC SUBMISSION ====================
+app.post("/api/kyc/submit", authenticateUser, async (req: any, res) => {
+  const { id_front, id_back, selfie } = req.body;
+  if (!id_front || !id_back || !selfie) return res.status(400).json({ error: "All three photos required: ID front, ID back, and selfie." });
+  const db = await getDb();
+  const user = await db.get("SELECT kyc_status FROM users WHERE id = ?", [req.user.id]);
+  if (user?.kyc_status === "verified") return res.status(400).json({ error: "KYC already verified." });
+  
+  // Store KYC submission (in production, images would be uploaded to cloud storage)
+  await db.run("UPDATE users SET kyc_status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [req.user.id]);
+  await db.run("INSERT INTO admin_audit_log (action, details, ip_address, admin_id) VALUES (?, ?, ?, 0)", [
+    `KYC submitted by user ${req.user.id}`,
+    `User uploaded ID front, ID back, and selfie for verification.`,
+    req.ip
+  ]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'kyc', 'KYC Submitted', 'Your identity documents have been submitted for review. This usually takes 24 hours.')", [req.user.id]);
+  
+  res.json({ success: true, message: "KYC documents submitted for review." });
+});
+
+app.get("/api/kyc/status", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const user = await db.get("SELECT kyc_status FROM users WHERE id = ?", [req.user.id]);
+  res.json({ status: user?.kyc_status || "not_submitted" });
+});
+
+// ==================== PUSH NOTIFICATIONS ====================
+app.get("/api/notifications", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const notifications = await db.all("SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 20", [req.user.id]);
+  res.json(notifications);
+});
+
+app.post("/api/notifications/read", authenticateUser, async (req: any, res) => {
+  const { notificationIds } = req.body;
+  const db = await getDb();
+  if (notificationIds && notificationIds.length > 0) {
+    const placeholders = notificationIds.map(() => "?").join(",");
+    await db.run(`UPDATE notifications SET is_read = 1 WHERE id IN (${placeholders}) AND user_id = ?`, [...notificationIds, req.user.id]);
+  } else {
+    await db.run("UPDATE notifications SET is_read = 1 WHERE user_id = ?", [req.user.id]);
+  }
+  res.json({ success: true });
+});
+
+app.post("/api/notifications/send", authenticateUser, async (req: any, res) => {
+  const { title, message, type } = req.body;
+  if (!title || !message) return res.status(400).json({ error: "Title and message required." });
+  const db = await getDb();
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)", [req.user.id, type || "system", title, message]);
+  res.json({ success: true });
+});
+
+app.get("/api/admin/notifications", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const all = await db.all("SELECT n.*, u.name as user_name FROM notifications n JOIN users u ON n.user_id = u.id ORDER BY n.id DESC LIMIT 100");
+  res.json(all);
+});
+
+app.post("/api/admin/notifications/send", authenticateAdmin, async (req: any, res) => {
+  const { userId, title, message, type } = req.body;
+  if (!userId || !title || !message) return res.status(400).json({ error: "userId, title, and message required." });
+  const db = await getDb();
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)", [userId, type || "admin", title, message]);
+  await logAdminAction("Sent notification", `To user ${userId}: ${title}`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
+app.post("/api/admin/notifications/broadcast", authenticateAdmin, async (req: any, res) => {
+  const { title, message, type } = req.body;
+  if (!title || !message) return res.status(400).json({ error: "Title and message required." });
+  const db = await getDb();
+  const users = await db.all("SELECT id FROM users WHERE status != 'blocked'");
+  for (const u of users) {
+    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)", [u.id, type || "broadcast", title, message]);
+  }
+  await logAdminAction("Broadcast notification", `To ${users.length} users: ${title}`, req.ip, req.adminId);
+  res.json({ success: true, sent: users.length });
+});
+
 // ==================== INSURANCE ====================
 
 app.post("/api/insurance/purchase", authenticateUser, async (req: any, res) => {
@@ -957,6 +1261,16 @@ app.post("/api/admin/rentals/:orderId/status", authenticateAdmin, async (req: an
   await db.run("UPDATE rental_orders SET status = ?, eta = ?, admin_notes = ? WHERE id = ?", [status, eta || null, notes || null, req.params.orderId]);
   if (order) {
     await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'rental', 'Order Update', 'Your rental order ' || ? || ' is now: ' || ? || '.')", [order.user_id, order.order_number, status]);
+    const statusMessages: Record<string, string> = {
+      confirmed: "Your rental has been confirmed! Delivery will begin shortly.",
+      dispatched: "Your rental vehicle has been dispatched!",
+      in_transit: "Your rental vehicle is in transit!",
+      delivered: "Your rental vehicle has been delivered! Enjoy the ride!",
+      completed: "Your rental period has been completed. Thank you!"
+    };
+    if (statusMessages[status]) {
+      await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'rental', 'Rental Update', ?)", [order.user_id, statusMessages[status]]);
+    }
     // Initialize tracking when order is confirmed or dispatched
     if (status === 'confirmed' || status === 'dispatched' || status === 'in_transit') {
       await db.run("INSERT OR IGNORE INTO map_tracking (user_id, car_id, current_lat, current_lng, route_index, total_stops, delays_encountered, expedite_paid, last_updated) VALUES (?, ?, 33.7431, -118.2673, 0, 100, 0, 0, CURRENT_TIMESTAMP)", [order.user_id, order.car_id]);
@@ -1303,6 +1617,7 @@ app.post("/api/admin/payments/:payId/confirm", authenticateAdmin, async (req: an
     await db.run("INSERT INTO lottery_entries (user_id, tickets, source, month) VALUES (?, 1, 'payment', ?)", [payment.user_id, new Date().toISOString().substring(0, 7)]);
     await db.run("UPDATE users SET lottery_tickets = lottery_tickets + 1 WHERE id = ?", [payment.user_id]);
     await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Payment Confirmed', 'Your payment of $' || ? || ' has been confirmed. +' || ? || ' points awarded!')", [payment.user_id, payment.amount, points]);
+    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Deposit Confirmed', 'Your deposit of $' || ? || ' has been confirmed and credited to your balance.')", [payment.user_id, payment.amount]);
     await logAdminAction("Confirmed payment", `Payment ID ${payment.id} - User ${payment.user_id}`, req.ip, req.adminId);
   }
   res.json({ success: true });
@@ -1401,6 +1716,13 @@ app.post("/api/admin/tracking/:userId", authenticateAdmin, async (req: any, res)
     const user = await db.get("SELECT name, email FROM users WHERE id = ?", [req.params.userId]);
     const progress = Math.round((route_index / 100) * 100);
     await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'dispatch', 'Vehicle Update', 'Your vehicle is now ' || ? || '% complete on its journey!')", [req.params.userId, progress]);
+    if (route_index >= 100) {
+      await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'tracking', 'Delivery Complete', 'Your vehicle has been delivered! Congratulations!')", [req.params.userId]);
+    } else if (route_index >= 50) {
+      await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'tracking', 'In Transit', 'Your vehicle is over halfway to its destination!')", [req.params.userId]);
+    } else if (route_index > 0) {
+      await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'tracking', 'Delivery Started', 'Your vehicle delivery has begun. Track it in real-time!')", [req.params.userId]);
+    }
   }
   res.json({ success: true });
 });
@@ -1763,9 +2085,119 @@ app.post("/api/admin/wallets/user", authenticateAdmin, async (req: any, res) => 
   const { user_id, wallet_address } = req.body;
   if (!user_id || !wallet_address) return res.status(400).json({ error: "User ID and wallet address required." });
   const db = await getDb();
+  const user = await db.get("SELECT id, email FROM users WHERE id = ?", [user_id]);
+  if (!user) return res.status(404).json({ error: "User not found." });
   await db.run("UPDATE users SET crypto_wallet_address = ? WHERE id = ?", [wallet_address, user_id]);
-  await logAdminAction("Updated user wallet", `User #${user_id}: ${wallet_address}`, req.ip, req.adminId);
-  res.json({ success: true });
+  await logAdminAction("Updated user wallet", `User #${user_id} (${user.email}): ${wallet_address}`, req.ip, req.adminId);
+  res.json({ success: true, wallet_address });
+});
+
+// ==================== USER WALLET MANAGEMENT ====================
+app.get("/api/admin/users/:userId/wallet", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const user = await db.get("SELECT id, email, crypto_wallet_address FROM users WHERE id = ?", [req.params.userId]);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  await logAdminAction("Viewed user wallet", `User #${user.id} (${user.email})`, req.ip, req.adminId);
+  res.json({ user_id: user.id, email: user.email, wallet_address: user.crypto_wallet_address || null });
+});
+
+app.post("/api/admin/users/:userId/wallet", authenticateAdmin, async (req: any, res) => {
+  const { wallet_address } = req.body;
+  if (!wallet_address) return res.status(400).json({ error: "Wallet address required." });
+  const db = await getDb();
+  const user = await db.get("SELECT id, email FROM users WHERE id = ?", [req.params.userId]);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  await db.run("UPDATE users SET crypto_wallet_address = ? WHERE id = ?", [wallet_address, req.params.userId]);
+  await logAdminAction("Updated user wallet (by ID)", `User #${user.id} (${user.email}): ${wallet_address}`, req.ip, req.adminId);
+  res.json({ success: true, wallet_address });
+});
+
+// ==================== SYSTEM SETTINGS ====================
+app.get("/api/admin/system-settings", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const rows = await db.all("SELECT key, value FROM system_settings");
+  const settings: Record<string, string> = {};
+  for (const row of rows) settings[row.key] = row.value;
+  await logAdminAction("Viewed system settings", `Loaded ${rows.length} settings`, req.ip, req.adminId);
+  res.json(settings);
+});
+
+app.post("/api/admin/system-settings", authenticateAdmin, async (req: any, res) => {
+  const updates = req.body;
+  if (!updates || typeof updates !== 'object') return res.status(400).json({ error: "Settings object required." });
+  const db = await getDb();
+  let count = 0;
+  for (const [key, value] of Object.entries(updates)) {
+    await db.run("INSERT INTO system_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [key, String(value)]);
+    count++;
+  }
+  await logAdminAction("Updated system settings", `${count} setting(s) updated`, req.ip, req.adminId);
+  res.json({ success: true, updated: count });
+});
+
+// ==================== REVENUE SUMMARY ====================
+app.get("/api/admin/revenue", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const totalDeposits = await db.get("SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE status = 'confirmed' AND type = 'deposit'");
+  const txFees = await db.get("SELECT COALESCE(SUM(amount * 0.01), 0) AS total FROM payments WHERE status = 'confirmed' AND type = 'deposit'");
+  const eliteRevenue = await db.get("SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE status = 'confirmed' AND type = 'elite_subscription'");
+  const insuranceRevenue = await db.get("SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE status = 'confirmed' AND type = 'insurance'");
+  const confirmedCount = await db.get("SELECT COUNT(*) AS count FROM payments WHERE status = 'confirmed' AND type = 'deposit'");
+  await logAdminAction("Viewed revenue summary", "", req.ip, req.adminId);
+  res.json({
+    total_deposits_confirmed: totalDeposits.total,
+    transaction_fees_earned: txFees.total,
+    elite_subscription_revenue: eliteRevenue.total,
+    insurance_revenue: insuranceRevenue.total,
+    confirmed_deposit_count: confirmedCount.count,
+  });
+});
+
+// ==================== AUDIT LOG ====================
+app.get("/api/admin/audit-log", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const logs = await db.all("SELECT * FROM admin_logs ORDER BY id DESC LIMIT 500");
+  res.json(logs);
+});
+
+// ==================== USER MANAGEMENT (BLOCK / BALANCE / POINTS) ====================
+app.post("/api/admin/user/:userId/block", authenticateAdmin, async (req: any, res) => {
+  const { blocked } = req.body;
+  if (typeof blocked !== 'boolean') return res.status(400).json({ error: "blocked (boolean) required." });
+  const db = await getDb();
+  const user = await db.get("SELECT id, email, blocked FROM users WHERE id = ?", [req.params.userId]);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  await db.run("UPDATE users SET blocked = ? WHERE id = ?", [blocked ? 1 : 0, req.params.userId]);
+  await logAdminAction(blocked ? "Blocked user" : "Unblocked user", `User #${user.id} (${user.email})`, req.ip, req.adminId);
+  res.json({ success: true, blocked });
+});
+
+app.post("/api/admin/user/:userId/balance", authenticateAdmin, async (req: any, res) => {
+  const { amount, reason } = req.body;
+  if (typeof amount !== 'number') return res.status(400).json({ error: "amount (number) required." });
+  const db = await getDb();
+  const user = await db.get("SELECT id, email, balance FROM users WHERE id = ?", [req.params.userId]);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  const newBalance = Math.round((user.balance + amount) * 100) / 100;
+  if (newBalance < 0) return res.status(400).json({ error: "Insufficient balance.", current_balance: user.balance });
+  await db.run("UPDATE users SET balance = ? WHERE id = ?", [newBalance, req.params.userId]);
+  const action = amount >= 0 ? "Credited balance" : "Debited balance";
+  await logAdminAction(action, `User #${user.id} (${user.email}): ${amount >= 0 ? '+' : ''}${amount} — ${reason || 'No reason'}`, req.ip, req.adminId);
+  res.json({ success: true, previous_balance: user.balance, new_balance: newBalance });
+});
+
+app.post("/api/admin/user/:userId/points", authenticateAdmin, async (req: any, res) => {
+  const { points, reason } = req.body;
+  if (typeof points !== 'number') return res.status(400).json({ error: "points (number) required." });
+  const db = await getDb();
+  const user = await db.get("SELECT id, email, points FROM users WHERE id = ?", [req.params.userId]);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  const newPoints = Math.round(user.points + points);
+  if (newPoints < 0) return res.status(400).json({ error: "Insufficient points.", current_points: user.points });
+  await db.run("UPDATE users SET points = ? WHERE id = ?", [newPoints, req.params.userId]);
+  const action = points >= 0 ? "Awarded points" : "Deducted points";
+  await logAdminAction(action, `User #${user.id} (${user.email}): ${points >= 0 ? '+' : ''}${points} — ${reason || 'No reason'}`, req.ip, req.adminId);
+  res.json({ success: true, previous_points: user.points, new_points: newPoints });
 });
 
 // ==================== MASTER AI ADMIN CONNECTOR ====================

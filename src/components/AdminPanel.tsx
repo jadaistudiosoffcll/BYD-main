@@ -137,11 +137,19 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
   const [wallets, setWallets] = useState<any>({ methods: [], global_wallet: "" });
   const [globalWalletForm, setGlobalWalletForm] = useState("");
   const [walletMsg, setWalletMsg] = useState("");
+  const [userWalletSearch, setUserWalletSearch] = useState("");
+  const [userWalletResults, setUserWalletResults] = useState<any[]>([]);
+  const [editingUserWallet, setEditingUserWallet] = useState<any>(null);
+  const [userWalletAddr, setUserWalletAddr] = useState("");
 
   // Master AI
   const [masterStatus, setMasterStatus] = useState<any>({ status: "disconnected" });
   const [masterWebhook, setMasterWebhook] = useState("");
   const [masterMsg, setMasterMsg] = useState("");
+
+  // Revenue & Fraud
+  const [revenue, setRevenue] = useState<any>({});
+  const [fraudAlerts, setFraudAlerts] = useState<any[]>([]);
 
   const headers = () => ({ "Authorization": `Bearer ${adminToken}`, "Content-Type": "application/json" });
   const headersNoCT = () => ({ "Authorization": `Bearer ${adminToken}` });
@@ -153,6 +161,8 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
     try {
       const res = await fetch("/api/admin/metrics", { headers: headersNoCT() });
       if (res.ok) setMetrics(await res.json());
+      loadRevenue();
+      loadFraudAlerts();
     } catch {} finally { setLoading(false); }
   };
 
@@ -261,6 +271,16 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
   };
   const loadMaster = async () => {
     try { const res = await fetch("/api/admin/master-status", { headers: headersNoCT() }); setMasterStatus(await res.json()); } catch {}
+  };
+  const searchUsersForWallet = async () => {
+    if (!userWalletSearch.trim()) return;
+    try { const res = await fetch(`/api/admin/users?search=${encodeURIComponent(userWalletSearch)}`, { headers: headersNoCT() }); if (res.ok) setUserWalletResults(await res.json()); } catch {}
+  };
+  const loadRevenue = async () => {
+    try { const res = await fetch("/api/admin/revenue", { headers: headersNoCT() }); if (res.ok) setRevenue(await res.json()); } catch {}
+  };
+  const loadFraudAlerts = async () => {
+    try { const res = await fetch("/api/admin/fraud-alerts", { headers: headersNoCT() }); if (res.ok) { const data = await res.json(); setFraudAlerts(data.alerts || []); } } catch {}
   };
 
   useEffect(() => {
@@ -823,6 +843,42 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                     </div>
                   )) : <p className="text-xs text-white/40">No chart data.</p>}
                 </div>
+              </div>
+
+              {/* Revenue Summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { label: "Deposits Confirmed", value: `$${(revenue.total_deposits || 0).toLocaleString()}`, color: "text-emerald-400" },
+                  { label: "Transaction Fees (1%)", value: `$${(revenue.transaction_fees || 0).toLocaleString()}`, color: "text-cyan-400" },
+                  { label: "Elite Revenue", value: `$${(revenue.elite_revenue || 0).toLocaleString()}`, color: "text-purple-400" },
+                  { label: "Insurance Revenue", value: `$${(revenue.insurance_revenue || 0).toLocaleString()}`, color: "text-amber-400" },
+                ].map((s, i) => (
+                  <div key={i} className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl">
+                    <p className="text-[10px] uppercase tracking-wider text-white/40 font-mono">{s.label}</p>
+                    <p className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fraud Alerts */}
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl">
+                <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-red-400" /> Fraud Detection Alerts
+                  {fraudAlerts.length > 0 && <span className="ml-auto text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded-full">{fraudAlerts.length} alerts</span>}
+                </h3>
+                {fraudAlerts.length > 0 ? fraudAlerts.map((a, i) => (
+                  <div key={i} className={`flex items-center justify-between py-2.5 border-b border-white/5 text-xs ${a.severity === 'critical' ? 'text-red-400' : a.severity === 'high' ? 'text-amber-400' : 'text-white/70'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${a.severity === 'critical' ? 'bg-red-400 animate-pulse' : a.severity === 'high' ? 'bg-amber-400' : 'bg-white/30'}`}></span>
+                      <span className="font-mono text-[10px] uppercase">{a.type.replace(/_/g, ' ')}</span>
+                      <span>{a.message}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {a.user_id && <button onClick={async () => { await fetch("/api/admin/fraud-action", { method: "POST", headers: headers(), body: JSON.stringify({ userId: a.user_id, action: 'block', reason: a.message }) }); loadFraudAlerts(); }}
+                        className="px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-[10px] hover:bg-red-500/20 cursor-pointer">Block</button>}
+                    </div>
+                  </div>
+                )) : <p className="text-xs text-white/40">No fraud alerts detected.</p>}
               </div>
             </div>
           )}
@@ -1680,6 +1736,45 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl space-y-3">
+                <h3 className="text-sm font-bold flex items-center gap-2"><Users className="w-4 h-4 text-[#00E5FF]" /> Per-User Wallet Editor</h3>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Search user by name or email..." value={userWalletSearch} onChange={e => setUserWalletSearch(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && searchUsersForWallet()}
+                    className="flex-1 bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                  <button onClick={searchUsersForWallet}
+                    className="px-4 py-2 bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20 rounded-xl text-[10px] uppercase font-bold tracking-wider hover:bg-[#00E5FF]/20 transition cursor-pointer">Search</button>
+                </div>
+                {userWalletResults.length > 0 && (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {userWalletResults.map((u: any) => (
+                      <div key={u.id} className="flex items-center gap-3 bg-[#0a0e1a] border border-white/10 p-3 rounded-xl">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold truncate">{u.name}</p>
+                          <p className="text-[10px] text-white/40 truncate">{u.email}</p>
+                        </div>
+                        {editingUserWallet === u.id ? (
+                          <div className="flex gap-2 items-center">
+                            <input type="text" value={userWalletAddr} onChange={e => setUserWalletAddr(e.target.value)} placeholder="New wallet address"
+                              className="bg-[#0a0e1a] border border-white/10 px-2 py-1 rounded-lg text-[10px] font-mono w-48 focus:outline-none focus:border-[#00E5FF]/50" />
+                            <button onClick={async () => { await fetch(`/api/admin/users/${u.id}/wallet`, { method: "POST", headers: headers(), body: JSON.stringify({ wallet_address: userWalletAddr }) }); showMsg(setWalletMsg, `Wallet updated for ${u.name}`); setEditingUserWallet(null); }}
+                              className="p-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 cursor-pointer"><CheckCircle className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => setEditingUserWallet(null)} className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 items-center">
+                            <span className="text-[10px] font-mono text-white/50 truncate max-w-[180px]">{u.wallet_address || "No wallet set"}</span>
+                            <button onClick={() => { setEditingUserWallet(u.id); setUserWalletAddr(u.wallet_address || ""); }}
+                              className="p-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[11px] text-white/40">Set custom deposit wallet addresses per user. Users will see this address when making deposits.</p>
               </div>
             </div>
           )}

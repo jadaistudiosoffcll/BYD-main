@@ -14,6 +14,7 @@ import { EnvironmentFeed } from "./live/EnvironmentFeed";
 import { RentVehiclePage } from "./rental/RentVehiclePage";
 import { InvestPage } from "./investment/InvestPage";
 import { ReferralTreeSection } from "./referrals/ReferralTreeSection";
+import CameraKYC from "./CameraKYC";
 
 interface UserDashboardProps {
   authToken: string;
@@ -823,6 +824,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
           {/* ==================== KYC ==================== */}
           {activeTab === "kyc" && (
             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 max-w-3xl mx-auto">
+              <CameraKYC token={token} currentStatus={data?.user?.kyc_status} onComplete={() => refresh()} />
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-lg font-bold">Identity Verification (KYC)</h2>

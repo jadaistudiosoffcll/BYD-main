@@ -4,6 +4,7 @@ import {
   RefreshCcw, HelpCircle, Camera, Check, FileText, Upload, Eye, EyeOff,
   Wallet, Bitcoin, Banknote, Clock, Zap, ArrowRight, AlertTriangle, Loader2
 } from 'lucide-react';
+import QRPaymentScanner from './QRPaymentScanner';
 
 interface PaymentFlowProps {
   initialPlan?: string;
@@ -191,6 +192,17 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
   const cryptoAmount = form.plan === 'founders-club' ? '99' : String(Math.round(monthlyPayment));
 
   const updateForm = (field: keyof FormData, value: any) => setForm(prev => ({ ...prev, [field]: value }));
+
+  useEffect(() => {
+    if (step === 'crypto-payment') {
+      fetch('/api/admin/wallets', { headers: { 'Content-Type': 'application/json' } })
+        .then(r => r.json())
+        .then(data => {
+          if (data.global_wallet) updateForm('walletAddress', data.global_wallet);
+        })
+        .catch(() => {});
+    }
+  }, [step]);
 
   const togglePassword = () => updateForm('showPassword', !form.showPassword);
 
@@ -578,11 +590,15 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
           <span className="text-white/50 text-sm">Network</span>
           <span className="text-white font-medium">TRC20</span>
         </div>
-        <div className="h-24 bg-black/30 border border-white/10 rounded-xl flex items-center justify-center">
-          <div className="text-center">
-            <Wallet className="w-8 h-8 text-white/20 mx-auto mb-1" />
-            <p className="text-xs text-white/30">Scan QR code to pay</p>
-          </div>
+        <div className="bg-black/30 border border-white/10 rounded-xl p-4 flex justify-center">
+          {form.walletAddress ? (
+            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=tron:${form.walletAddress}?token=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t&amount=${cryptoAmount}`} alt="QR Code" className="w-44 h-44 rounded-lg" />
+          ) : (
+            <div className="text-center py-4">
+              <Wallet className="w-8 h-8 text-white/20 mx-auto mb-1" />
+              <p className="text-xs text-white/30">QR code will appear when wallet is configured</p>
+            </div>
+          )}
         </div>
       </div>
       <div className="p-4 bg-gradient-to-r from-yellow-500/10 to-yellow-600/5 border border-yellow-500/20 rounded-xl flex items-start gap-3">

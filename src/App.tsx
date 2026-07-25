@@ -7,6 +7,7 @@ import HelpPage from "./components/HelpPage";
 import SupportWidget from "./components/SupportWidget";
 import { VehiclesPage } from "./components/pages/VehiclesPage";
 import { Home, Compass, HelpCircle, LogOut, User, Shield, Bell, Zap, Menu, X, UserCheck, Car, Gift, Award, MapPin, Gamepad2, Leaf, Ticket, DollarSign, BarChart3, Settings, Users, CreditCard, Truck, MessageSquare, BookOpen, Sparkles, LayoutDashboard, Search, HeartHandshake, Megaphone, Grid3X3, Camera, Newspaper, Crown, TrendingUp } from "lucide-react";
+import AIChatWidget from "./components/AIChatWidget";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<"landing" | "vehicles" | "payment" | "dashboard" | "admin" | "help">("landing");
@@ -365,6 +366,7 @@ export default function App() {
         </div>
       )}
 
+      {token && !user?.is_admin && <AIChatWidget token={token} />}
       <SupportWidget />
     </div>
   );
