@@ -489,7 +489,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                   </div>
                   <Map className="w-6 h-6 text-cyan-400" />
                 </div>
-                {data.activeVehicle && data.tracking ? (
+                {data.tracking ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div className="bg-white/5 rounded-xl p-3">
@@ -1237,7 +1237,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
           {/* ==================== TRANSIT / ENVIRONMENT FEED ==================== */}
           {activeTab === "transit" && (
             <div className="space-y-6">
-              {data.activeVehicle && data.tracking ? (
+              {data.tracking ? (
                 <TransitUpdatePanel
                   authToken={authToken}
                   routeIndex={data.tracking.route_index}
@@ -1249,7 +1249,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                 <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-center py-12">
                   <Car className="w-12 h-12 mx-auto mb-3 text-slate-500 opacity-50" />
                   <p className="text-sm text-slate-500">No active transit data available</p>
-                  <p className="text-xs text-slate-600 mt-1">Purchase a vehicle to see real-time transit updates</p>
+                  <p className="text-xs text-slate-600 mt-1">Complete a purchase or rental to see real-time transit updates</p>
                 </div>
               )}
             </div>
@@ -1444,6 +1444,20 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ==================== WEBCAMS ==================== */}
+          {activeTab === "webcams" && (
+            <div>
+              <LiveWebcamGrid authToken={authToken} />
+            </div>
+          )}
+
+          {/* ==================== INSPECT ==================== */}
+          {activeTab === "inspect" && (
+            <div>
+              <CarInspectSection />
             </div>
           )}
 

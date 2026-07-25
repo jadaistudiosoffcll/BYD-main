@@ -262,8 +262,9 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
     setLoading(true);
     try {
       await apiPost('/api/payments/create', {
-        method: 'crypto', plan: form.plan, amount: cryptoAmount, txHash: form.txHash,
-        cryptoWallet: 'TR7U...3kP9',
+        method: 'crypto', type: form.plan === 'founders-club' ? 'membership' : 'installment',
+        amount: cryptoAmount, transaction_hash: form.txHash, currency: 'USDT',
+        vehicleModel: form.plan === 'installment' ? 'BYD Seal' : undefined,
       });
       setCryptoTxSubmitted(true);
       setTimeout(() => { setStep('kyc'); }, 3000);

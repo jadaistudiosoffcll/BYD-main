@@ -368,7 +368,7 @@ app.get("/api/payment-methods", async (req, res) => {
 });
 
 app.post("/api/payments/create", authenticateUser, async (req: any, res) => {
-  const { method, type, amount, currency, vehicleModel, monthlyInstallment, termMonths } = req.body;
+  const { method, type, amount, currency, vehicleModel, monthlyInstallment, termMonths, transaction_hash } = req.body;
   if (!type || !amount) return res.status(400).json({ error: "Missing payment parameters." });
   const db = await getDb();
   const user = await db.get("SELECT kyc_status FROM users WHERE id = ?", [req.user.id]);
@@ -399,7 +399,7 @@ app.post("/api/payments/create", authenticateUser, async (req: any, res) => {
   }
 
   // Crypto (default)
-  const txHash = "BYD-TX-" + crypto.randomBytes(12).toString("hex").toUpperCase();
+  const txHash = transaction_hash || "BYD-TX-" + crypto.randomBytes(12).toString("hex").toUpperCase();
   const result = await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash, country) VALUES (?,?,?,?,'pending',?,?,?)", [req.user.id, amount, currency || 'USDT', method || 'crypto', type, txHash, req.user.country || 'US']);
 
   if (type === "installment" && vehicleModel) {
@@ -559,6 +559,18 @@ app.get("/api/dashboard/summary", authenticateUser, async (req: any, res) => {
     rentalHistory: await db.all("SELECT ro.*, c.model as car_model FROM rental_orders ro JOIN cars c ON ro.car_id = c.id WHERE ro.user_id = ? ORDER BY ro.id DESC LIMIT 10", [req.user.id]),
     elitePlans: [{ id: "silver", name: "Silver Elite", price: 299 }, { id: "gold", name: "Gold Elite", price: 599 }, { id: "platinum", name: "Platinum Elite", price: 999 }]
   });
+});
+
+// ==================== TRACKING EXPEDITE ====================
+app.post("/api/tracking/expedite", authenticateUser, async (req: any, res) => {
+  const { txHash } = req.body;
+  const db = await getDb();
+  const user = await db.get("SELECT balance FROM users WHERE id = ?", [req.user.id]);
+  if (!user || (user.balance || 0) < 49) return res.status(400).json({ error: "Insufficient balance for expedite fee ($49)." });
+  await db.run("UPDATE users SET balance = balance - 49 WHERE id = ?", [req.user.id]);
+  await db.run("UPDATE map_tracking SET expedite_paid = 1 WHERE user_id = ?", [req.user.id]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'tracking', 'Expedite Paid', 'Your delivery has been expedited. Priority routing activated.')", [req.user.id]);
+  res.json({ success: true, message: "Expedite fee paid. Priority routing activated." });
 });
 
 // ==================== INSURANCE ====================
@@ -930,8 +942,19 @@ app.get("/api/admin/rentals", authenticateAdmin, async (req: any, res) => {
 app.post("/api/admin/rentals/:orderId/status", authenticateAdmin, async (req: any, res) => {
   const { status, eta, notes } = req.body;
   const db = await getDb();
-  await db.run("UPDATE rental_orders SET status = ?, eta = ?, admin_notes = ? WHERE id = ?", [status, eta || null, notes || null, req.params.orderId]);
   const order = await db.get("SELECT * FROM rental_orders WHERE id = ?", [req.params.orderId]);
+  if (!order) return res.status(404).json({ error: "Order not found." });
+  
+  // Deduct balance when confirming rental
+  if (status === 'confirmed' && order.status !== 'confirmed') {
+    const user = await db.get("SELECT balance FROM users WHERE id = ?", [order.user_id]);
+    if (!user || (user.balance || 0) < order.subtotal) {
+      return res.status(400).json({ error: `User has insufficient balance ($${user?.balance || 0}). Need $${order.subtotal}.` });
+    }
+    await db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [order.subtotal, order.user_id]);
+  }
+  
+  await db.run("UPDATE rental_orders SET status = ?, eta = ?, admin_notes = ? WHERE id = ?", [status, eta || null, notes || null, req.params.orderId]);
   if (order) {
     await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'rental', 'Order Update', 'Your rental order ' || ? || ' is now: ' || ? || '.')", [order.user_id, order.order_number, status]);
     // Initialize tracking when order is confirmed or dispatched
