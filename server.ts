@@ -498,8 +498,9 @@ app.post("/api/admin/elite/:payId/confirm", authenticateAdmin, async (req: any, 
 // ==================== DASHBOARD ====================
 
 app.get("/api/dashboard/summary", authenticateUser, async (req: any, res) => {
+  try {
   const db = await getDb();
-  await tickMarkerLocations();
+  try { await tickMarkerLocations(); } catch (tickErr) { console.error("tickMarkerLocations error:", tickErr); }
   const user = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
   const insurance = await db.all("SELECT * FROM insurance_policies WHERE user_id = ? ORDER BY id DESC", [req.user.id]);
   const activeVehicle = await db.get("SELECT * FROM installments WHERE user_id = ? AND status = 'active'", [req.user.id]);
@@ -555,10 +556,14 @@ app.get("/api/dashboard/summary", authenticateUser, async (req: any, res) => {
     carbonOffset: { treesPlanted: carbonTotal?.total_trees || 0, lbsSaved: carbonTotal?.total_lbs || 0 },
     lotteryEntries: lotteryCount?.total_tickets || 0,
     paymentMethods: await db.all("SELECT * FROM payment_methods WHERE enabled = 1"),
-    activeRentals: await db.all("SELECT ro.*, c.model as car_model, c.image_url as car_image FROM rental_orders ro JOIN cars c ON ro.car_id = c.id WHERE ro.user_id = ? AND ro.status IN ('confirmed','dispatched','in_transit') ORDER BY ro.id DESC", [req.user.id]),
+    activeRentals: await db.all("SELECT ro.*, c.model as car_model, (SELECT ci.image_url FROM car_images ci WHERE ci.car_id = c.id AND ci.is_primary = 1 LIMIT 1) as car_image FROM rental_orders ro JOIN cars c ON ro.car_id = c.id WHERE ro.user_id = ? AND ro.status IN ('confirmed','dispatched','in_transit') ORDER BY ro.id DESC", [req.user.id]),
     rentalHistory: await db.all("SELECT ro.*, c.model as car_model FROM rental_orders ro JOIN cars c ON ro.car_id = c.id WHERE ro.user_id = ? ORDER BY ro.id DESC LIMIT 10", [req.user.id]),
     elitePlans: [{ id: "silver", name: "Silver Elite", price: 299 }, { id: "gold", name: "Gold Elite", price: 599 }, { id: "platinum", name: "Platinum Elite", price: 999 }]
   });
+  } catch (err: any) {
+    console.error("Dashboard summary error:", err);
+    res.status(500).json({ error: "Dashboard load failed: " + (err.message || "Unknown error") });
+  }
 });
 
 // ==================== TRACKING EXPEDITE ====================

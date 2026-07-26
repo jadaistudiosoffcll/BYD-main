@@ -79,14 +79,28 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
     setTimeout(() => setCopied(""), 2000);
   };
 
+  const [loadError, setLoadError] = useState("");
+
   const loadSummaryData = async () => {
+    setLoadError("");
     try {
       const res = await fetch("/api/dashboard/summary", { headers: { Authorization: `Bearer ${authToken}` } });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem("byd_horizon_token");
+          localStorage.removeItem("byd_horizon_user");
+          window.location.href = "/";
+          return;
+        }
+        setLoadError(json.error || "Failed to load dashboard. Please refresh.");
+        return;
+      }
       const json = await res.json();
-      if (res.ok) setData(json);
-      else { alert(json.error || "Auth failed"); onNavigate("landing"); }
-    } catch { console.error("fetch error"); }
-    finally { setLoading(false); }
+      setData(json);
+    } catch (err) {
+      setLoadError("Connection error. Please check your connection and try again.");
+    } finally { setLoading(false); }
   };
 
   const fetchWithAuth = async (url: string, method = "GET", body?: any) => {
@@ -317,7 +331,26 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
     </div>
   );
 
-  if (!data) return null;
+  if (!data && !loadError) return null;
+
+  if (loadError && !data) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] bg-[#0a0e1a]">
+        <div className="flex flex-col items-center space-y-4 text-center max-w-sm">
+          <AlertTriangle className="w-12 h-12 text-amber-400" />
+          <p className="text-sm text-white/80">{loadError}</p>
+          <button onClick={() => { setLoading(true); loadSummaryData(); }}
+            className="px-6 py-2.5 bg-[#00E5FF] text-[#0a0e1a] font-bold rounded-xl text-xs hover:bg-[#00E5FF]/90 transition cursor-pointer flex items-center gap-2">
+            <RefreshCw className="w-4 h-4" /> Retry
+          </button>
+          <button onClick={() => onNavigate("landing")}
+            className="text-xs text-white/40 hover:text-white/60 transition cursor-pointer">
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const user = data.user;
   const mc = data.mysteryCar;
