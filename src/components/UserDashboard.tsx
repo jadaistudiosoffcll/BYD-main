@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  LayoutDashboard, Map, Grid3X3, Users, Gift, Gamepad2, Car, Truck, Leaf, Trophy, FileCheck, ShieldCheck, HeadphonesIcon, Settings, Copy, Check, RefreshCw, Award, Flame, Zap, X, Eye, EyeOff, Camera, Upload, Video, ChevronRight, ExternalLink, Clock, MapPin, Gauge, Compass, Wallet, CreditCard, Lock, Unlock, Sparkles, AlertTriangle, CheckCircle, Download, ArrowUpRight, Search, ChevronLeft, ChevronDown, LogOut, Bell, DollarSign, Filter, Star, Plus, Minus, Edit, Trash2, Share2, BarChart3, Cpu, Navigation, Signal, Package, Ship, Anchor, Plane, CircleDot, Crosshair, QrCode, Ticket, Banknote, Gem, HeartHandshake, HandCoins, Leaf as LeafIcon, TreePine, BadgeCheck, CircleCheck, BookOpen, CircleUser, MessageSquare, HelpCircle, ThumbsUp, Calendar, Coins, Info, Moon, Sun, Smartphone, Mail, Phone, Globe, Palette, Hash, Loader2, UserCheck, ShieldAlert, ZapOff, ArrowLeft, RotateCcw, Play, Pause, TimerReset, ChevronsRight, ChevronsLeft, ArrowRight, Send, Paperclip, FileImage, Image, Mic, Volume2, VolumeX, Wifi, WifiOff, BatteryFull, BatteryLow, SignalHigh, SignalLow, Disc, SlidersHorizontal, List, Columns, Activity, TrendingUp, Users2, CircleDollarSign, PiggyBank, Target, Swords, PartyPopper, BellRing, Lightbulb, Construction, Clover, Diamond, Crown, Medal, Music, Radio, Tv, SunDim, Eclipse, Contrast, SwatchBook, Brush, Eraser, Scissors, Eye as EyeIcon, FolderOpen, Folder, HardDrive, Laptop, MonitorSmartphone, TabletSmartphone, MousePointerClick, ArrowUpFromLine, ArrowDownToLine, ArrowUpWideNarrow, ArrowDownWideNarrow, Timer, Hourglass, AlarmClockCheck, AlarmClockPlus, AlarmClockOff, Waves, WavesLadder, ShipWheel, Sailboat, Container, Palette as PaletteIcon, Megaphone, Newspaper } from "lucide-react";
+  LayoutDashboard, Map, Grid3X3, Users, Gift, Gamepad2, Car, FileCheck, ShieldCheck, HeadphonesIcon, Settings, Copy, Check, RefreshCw, X, Eye, EyeOff, Camera, ChevronRight, ExternalLink, Clock, MapPin, Wallet, CreditCard, Sparkles, AlertTriangle, CheckCircle, ArrowUpRight, Search, LogOut, Bell, DollarSign, BarChart3, Navigation, Package, Ship, Gem, HeartHandshake, HandCoins, TreePine, BadgeCheck, BookOpen, MessageSquare, Loader2, UserCheck, Crown, TrendingUp, ArrowRight, Send, Globe, Smartphone, Mail, Phone, QrCode, Upload, Video, Target, Swords, Diamond, Medal, Star, Zap, Flame, PartyPopper, Lock, Unlock, Shield, Coins, Info, HelpCircle, ThumbsUp, Play, Gift as GiftIcon, Award, Ticket, Download, RotateCcw, Minus, Plus } from "lucide-react";
 import { DashboardData, RewardItem } from "../types";
 import { NotificationBell } from "./ui/NotificationBell";
 import { DailyCheckin } from "./gamification/DailyCheckin";
 import { SpinWheel } from "./gamification/SpinWheel";
 import { BYDQuiz } from "./gamification/BYDQuiz";
-import { CarInspectSection } from "./cars/CarInspectSection";
 import { LiveTrackingMap } from "./map/LiveTrackingMap";
 import { LiveWebcamGrid } from "./live/LiveWebcamGrid";
 import { TransitUpdatePanel } from "./dashboard/TransitUpdatePanel";
-import { EnvironmentFeed } from "./live/EnvironmentFeed";
 import { RentVehiclePage } from "./rental/RentVehiclePage";
 import { InvestPage } from "./investment/InvestPage";
 import { ReferralTreeSection } from "./referrals/ReferralTreeSection";
@@ -29,22 +27,11 @@ const TAB_ICONS: Record<string, React.ReactNode> = {
   inspect: <Search className="w-4 h-4" />,
   referrals: <Users className="w-4 h-4" />,
   rewards: <Gift className="w-4 h-4" />,
-  donations: <HeartHandshake className="w-4 h-4" />,
-  outreach: <Megaphone className="w-4 h-4" />,
-  gamification: <Gamepad2 className="w-4 h-4" />,
-  drive2earn: <Car className="w-4 h-4" />,
-  mysterycar: <Truck className="w-4 h-4" />,
-  carbon: <Leaf className="w-4 h-4" />,
-  lottery: <Trophy className="w-4 h-4" />,
+  finance: <TrendingUp className="w-4 h-4" />,
+  games: <Gamepad2 className="w-4 h-4" />,
+  help: <HeadphonesIcon className="w-4 h-4" />,
   kyc: <FileCheck className="w-4 h-4" />,
-  insurance: <ShieldCheck className="w-4 h-4" />,
-  support: <HeadphonesIcon className="w-4 h-4" />,
-  webcams: <Camera className="w-4 h-4" />,
   rent: <Car className="w-4 h-4" />,
-  invest: <TrendingUp className="w-4 h-4" />,
-  transit: <Navigation className="w-4 h-4" />,
-  blog: <Newspaper className="w-4 h-4" />,
-  elite: <Crown className="w-4 h-4" />,
   settings: <Settings className="w-4 h-4" />,
 };
 
@@ -214,6 +201,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
 
   // Mystery Car
   const [mysterySubLoading, setMysterySubLoading] = useState(false);
+  const [showMysteryReveal, setShowMysteryReveal] = useState(false);
 
   const handleMysterySubscribe = async () => {
     setMysterySubLoading(true);
@@ -389,14 +377,77 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
               <span className="text-[10px] text-slate-500 font-mono uppercase">Balance</span>
               <div className="text-lg font-bold text-emerald-400 font-mono">{formatBalance(user.balance || 0)}</div>
             </div>
+            <div className="flex gap-2">
+              <button onClick={() => setActiveTab("finance")} className="px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer whitespace-nowrap flex items-center gap-1">
+                <DollarSign className="w-3 h-3" /> Add Money
+              </button>
+              <button onClick={() => setActiveTab("finance")} className="px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg text-[10px] font-bold text-amber-300 hover:bg-amber-500/30 transition cursor-pointer whitespace-nowrap flex items-center gap-1">
+                <ArrowUpRight className="w-3 h-3" /> Withdraw
+              </button>
+            </div>
           </div>
         </header>
 
         {/* Tab Content */}
         <div className="animate-fade-in">
 
-          {/* ==================== DASHBOARD ==================== */}
+          {/* ==================== DASHBOARD (KYC-FIRST) ==================== */}
           {activeTab === "dashboard" && (
+            <>
+            {/* KYC Banner - first thing user sees */}
+            {user.kyc_status !== "verified" ? (
+              <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl p-6 mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                    <UserCheck className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-amber-300">
+                      {user.kyc_status === "pending" ? "KYC Under Review" : "Identity Verification Required"}
+                    </h3>
+                    <p className="text-sm text-amber-200/70 mt-1">
+                      {user.kyc_status === "pending"
+                        ? "Your documents are being reviewed. You'll be notified once verified."
+                        : "Complete KYC verification to unlock deposits, purchases, rentals, investments and all platform features."}
+                    </p>
+                    {user.kyc_status !== "pending" && (
+                      <button onClick={() => setActiveTab("kyc")} className="mt-4 px-6 py-2.5 bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold text-amber-300 hover:bg-amber-500/40 transition cursor-pointer flex items-center gap-2">
+                        <UserCheck className="w-4 h-4" /> Complete KYC Now
+                      </button>
+                    )}
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold font-mono ${user.kyc_status === "pending" ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"}`}>
+                    {user.kyc_status === "pending" ? "PENDING" : "UNVERIFIED"}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30 rounded-2xl p-6 mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <BadgeCheck className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-emerald-300">Identity Verified ✓</h3>
+                    <p className="text-sm text-emerald-200/70 mt-1">You have full access to all platform features. Welcome to BYD Horizon Club!</p>
+                    <div className="flex gap-3 mt-4">
+                      <button onClick={() => setActiveTab("rent")} className="px-4 py-2 bg-cyan-500/30 border border-cyan-500/40 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/40 transition cursor-pointer flex items-center gap-2">
+                        <Car className="w-4 h-4" /> Rent a Vehicle
+                      </button>
+                      <button onClick={() => handleNavigate("vehicles")} className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white/80 hover:bg-white/15 transition cursor-pointer flex items-center gap-2">
+                        <Grid3X3 className="w-4 h-4" /> Browse Showroom
+                      </button>
+                      <button onClick={() => setActiveTab("finance")} className="px-4 py-2 bg-emerald-500/30 border border-emerald-500/40 rounded-xl text-xs font-bold text-emerald-300 hover:bg-emerald-500/40 transition cursor-pointer flex items-center gap-2">
+                        <DollarSign className="w-4 h-4" /> Make a Deposit
+                      </button>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold font-mono">VERIFIED</span>
+                </div>
+              </div>
+            )}
+
+            {/* Dashboard Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-min">
               {/* User Stats Card */}
               <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 col-span-1 lg:col-span-1 row-span-2 flex flex-col justify-between">
@@ -510,21 +561,24 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                 </div>
               </div>
             </div>
+            </>
           )}
 
-          {/* ==================== TRACKING ==================== */}
+          {/* ==================== TRACKING & TRANSIT ==================== */}
           {activeTab === "tracking" && (
             <div className="space-y-6">
               <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="text-lg font-bold">Live Shipping Map</h2>
-                    <p className="text-xs text-slate-400">Real-time GPS tracking of your vehicle</p>
+                    <h2 className="text-lg font-bold">Tracking & Transit</h2>
+                    <p className="text-xs text-slate-400">Live GPS tracking, shipping locations, and delivery timeline</p>
                   </div>
                   <Map className="w-6 h-6 text-cyan-400" />
                 </div>
+
                 {data.tracking ? (
                   <div className="space-y-4">
+                    {/* Progress Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div className="bg-white/5 rounded-xl p-3">
                         <div className="text-[10px] text-slate-500 font-mono">Route Progress</div>
@@ -536,51 +590,79 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                       </div>
                       <div className="bg-white/5 rounded-xl p-3">
                         <div className="text-[10px] text-slate-500 font-mono">Destination</div>
-                        <div className="text-lg font-bold truncate">{data.activeVehicle.destination_city || data.user.city || "N/A"}</div>
+                        <div className="text-lg font-bold truncate">{data.user.city || "New York"}</div>
                       </div>
                       <div className="bg-white/5 rounded-xl p-3">
                         <div className="text-[10px] text-slate-500 font-mono">ETA</div>
                         <div className="text-lg font-bold text-emerald-400">~{Math.max(1, 10 - Math.floor(data.tracking.route_index / 10))}d</div>
                       </div>
                     </div>
+
+                    {/* Journey Timeline */}
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-400 mb-3">Journey Timeline</h3>
+                      <div className="flex items-center gap-1">
+                        {["Ordered", "Processing", "Shipped", "In Transit", "Customs", "Delivered"].map((stage, i) => (
+                          <div key={i} className="flex-1 text-center">
+                            <div className={`w-full h-1.5 rounded-full mb-1 ${data.tracking.route_index >= (i * 20) ? "bg-emerald-500" : "bg-white/10"}`} />
+                            <span className={`text-[8px] font-mono ${data.tracking.route_index >= (i * 20) ? "text-emerald-400" : "text-slate-600"}`}>{stage}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     {data.tracking.delays_encountered > 0 && !data.tracking.expedite_paid && (
                       <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="w-5 h-5 text-amber-400" />
                           <span className="text-sm text-amber-300">{data.tracking.delays_encountered} delay(s) detected</span>
                         </div>
-                        <button
-                          onClick={async () => {
-                            try {
-                              const res = await fetchWithAuth("/api/payments/create", "POST", { method: "expedite", amount: 49 });
-                              const json = await res.json();
-                              if (res.ok) alert(`Expedite fee: $49 USDT. Send to: ${json.wallet_address}`);
-                              else alert(json.error || "Failed");
-                            } catch { alert("Error"); }
-                          }}
-                          className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-300 transition cursor-pointer"
-                        >
-                          Expedite Shipping ($49)
-                        </button>
+                        <button onClick={async () => { try { const res = await fetchWithAuth("/api/payments/create", "POST", { method: "expedite", amount: 49 }); const json = await res.json(); if (res.ok) alert(`Expedite fee: $49 USDT. Send to: ${json.wallet_address}`); else alert(json.error || "Failed"); } catch { alert("Error"); } }} className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-300 transition cursor-pointer">Expedite Shipping ($49)</button>
                       </div>
                     )}
-                    <div className="w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden border border-white/10" id="live-tracking-map-container">
-                      <LiveTrackingMap
-                        authToken={authToken}
-                        routeIndex={data.tracking.route_index}
-                        totalStops={data.tracking.total_stops}
-                        destinationCity={data.user.city || "New York"}
-                        onRefresh={loadSummaryData}
-                      />
+
+                    {/* Live Map */}
+                    <div className="w-full h-[350px] md:h-[450px] rounded-2xl overflow-hidden border border-white/10" id="live-tracking-map-container">
+                      <LiveTrackingMap authToken={authToken} routeIndex={data.tracking.route_index} totalStops={data.tracking.total_stops} destinationCity={data.user.city || "New York"} onRefresh={loadSummaryData} />
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-12 text-slate-500">
-                    <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p>No active vehicle tracking available</p>
-                    <p className="text-xs mt-1">Purchase a vehicle to start tracking</p>
+                  <div className="space-y-6">
+                    <div className="text-center py-8 text-slate-500">
+                      <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No active vehicle tracking</p>
+                      <p className="text-xs mt-1">Rent or purchase a vehicle to start tracking</p>
+                    </div>
                   </div>
                 )}
+              </div>
+
+              {/* Shipping Location Selector */}
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-bold">Shipping Calculator</h2>
+                    <p className="text-xs text-slate-400">Select your delivery location for price estimation</p>
+                  </div>
+                  <Globe className="w-6 h-6 text-cyan-400" />
+                </div>
+                <ShippingLocationSelector />
+              </div>
+
+              {/* Email Notification */}
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-bold">Shipment Notifications</h2>
+                    <p className="text-xs text-slate-400">Get email updates on your delivery progress</p>
+                  </div>
+                  <Mail className="w-6 h-6 text-cyan-400" />
+                </div>
+                <div className="flex gap-3">
+                  <input type="email" placeholder="your@email.com" className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40" />
+                  <button className="px-4 py-3 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer">Save</button>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-2">Admin sends progress updates to this email</p>
               </div>
             </div>
           )}
@@ -659,8 +741,8 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
             </div>
           )}
 
-          {/* ==================== GAMIFICATION ==================== */}
-          {activeTab === "gamification" && (
+          {/* ==================== GAMES ==================== */}
+          {activeTab === "games" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <DailyCheckin authToken={authToken} points={user.horizon_points || 0} onCheckinSuccess={(np) => setData(p => p ? { ...p, user: { ...p.user, horizon_points: np } } : null)} />
               <div className="space-y-6">
@@ -670,56 +752,34 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
             </div>
           )}
 
-          {/* ==================== DRIVE TO EARN ==================== */}
-          {activeTab === "drive2earn" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-bold">Drive to Earn</h2>
-                    <p className="text-xs text-slate-400">Log miles & charging time for points</p>
-                  </div>
-                  <Car className="w-6 h-6 text-cyan-400" />
-                </div>
-                <form onSubmit={handleDriveLog} className="space-y-4">
-                  <div>
-                    <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Miles Driven</label>
-                    <input type="number" step="0.1" required value={driveMiles} onChange={e => setDriveMiles(e.target.value)} placeholder="e.g. 42.5" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40 transition" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Charging Time (hours)</label>
-                    <input type="number" step="0.5" required value={driveCharging} onChange={e => setDriveCharging(e.target.value)} placeholder="e.g. 2.5" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40 transition" />
-                  </div>
-                  <button type="submit" disabled={driveLoading} className="w-full py-3 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-sm font-bold text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-40 cursor-pointer">
-                    {driveLoading ? "Logging..." : "Log Drive"}
-                  </button>
-                </form>
-                {driveResult && (
-                  <div className="mt-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
-                    <Award className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-                    <div className="text-sm text-emerald-300">+{driveResult.points_earned} points earned!</div>
-                  </div>
-                )}
-              </div>
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold">Weekly Leaderboard</h2>
-                  <Trophy className="w-6 h-6 text-yellow-400" />
-                </div>
-                <div className="space-y-2">
-                  {driveLeaderboard.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold ${idx < 3 ? "bg-yellow-500/20 text-yellow-400" : "bg-white/5 text-slate-500"}`}>{idx + 1}</span>
-                        <span className="text-sm">{item.name || `Driver #${item.user_id}`}</span>
-                      </div>
-                      <span className="text-xs text-cyan-400 font-mono">{item.points_earned || 0} pts</span>
-                    </div>
-                  ))}
-                  {driveLeaderboard.length === 0 && <div className="text-center py-8 text-slate-500">No entries this week</div>}
-                </div>
-              </div>
-            </div>
+          {/* ==================== FINANCIAL HUB ==================== */}
+          {activeTab === "finance" && (
+            <FinancialHubSection
+              user={user}
+              data={data}
+              authToken={authToken}
+              fetchWithAuth={fetchWithAuth}
+              onRefresh={loadSummaryData}
+              onNavigate={onNavigate}
+              onKycRequired={() => setActiveTab("kyc")}
+            />
+          )}
+
+          {/* ==================== HELP CENTER ==================== */}
+          {activeTab === "help" && (
+            <HelpCenterSection
+              authToken={authToken}
+              chatMessages={chatMessages}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              supportSubject={supportSubject}
+              setSupportSubject={setSupportSubject}
+              supportMessage={supportMessage}
+              setSupportMessage={setSupportMessage}
+              supportLoading={supportLoading}
+              handleSupportSubmit={handleSupportSubmit}
+              onNavigate={onNavigate}
+            />
           )}
 
           {/* ==================== MYSTERY CAR ==================== */}
@@ -761,94 +821,6 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                   <button onClick={handleMysterySubscribe} disabled={mysterySubLoading} className="px-8 py-3 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-sm font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer disabled:opacity-40">
                     {mysterySubLoading ? "Processing..." : "Subscribe Now"}
                   </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ==================== CARBON OFFSET ==================== */}
-          {activeTab === "carbon" && (
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-bold">Carbon Offset</h2>
-                  <p className="text-xs text-slate-400">Track your environmental impact</p>
-                </div>
-                <Leaf className="w-6 h-6 text-emerald-400" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-6 text-center">
-                  <TreePine className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono">{carbonStats?.trees_planted || user.carbon_trees_planted || 0}</div>
-                  <div className="text-xs text-slate-400 mt-1">Trees Planted</div>
-                </div>
-                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 text-center">
-                  <LeafIcon className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono">{carbonStats?.lbs_saved || user.carbon_lbs_saved || 0}</div>
-                  <div className="text-xs text-slate-400 mt-1">Lbs CO₂ Saved</div>
-                </div>
-                <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-6 text-center">
-                  <BadgeCheck className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono">{carbonStats?.certificate_id || "N/A"}</div>
-                  <div className="text-xs text-slate-400 mt-1">Certificate ID</div>
-                </div>
-              </div>
-              <div className="text-center">
-                <button
-                  onClick={() => {
-                    const cert = `BYD Carbon Offset Certificate\nTrees: ${carbonStats?.trees_planted || user.carbon_trees_planted || 0}\nCO₂ Saved: ${carbonStats?.lbs_saved || user.carbon_lbs_saved || 0} lbs\nIssued: ${new Date().toISOString().split("T")[0]}`;
-                    const blob = new Blob([cert], { type: "text/plain" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a"); a.href = url; a.download = "carbon-certificate.txt"; a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="px-6 py-3 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-sm font-bold text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer"
-                >
-                  <Download className="w-4 h-4 inline mr-2" />
-                  Download Certificate
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ==================== LOTTERY ==================== */}
-          {activeTab === "lottery" && (
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold">Lottery Raffle</h2>
-                  <p className="text-xs text-slate-400">Win big with your lottery tickets</p>
-                </div>
-                <Ticket className="w-6 h-6 text-yellow-400" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-white/5 rounded-xl p-6 text-center">
-                  <Ticket className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono">{lotteryStatus?.tickets || user.lottery_tickets || 0}</div>
-                  <div className="text-xs text-slate-400 mt-1">Your Tickets</div>
-                </div>
-                <div className="bg-white/5 rounded-xl p-6 text-center">
-                  <Banknote className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono">{lotteryStatus?.total_pool ? `$${lotteryStatus.total_pool.toLocaleString()}` : "$0"}</div>
-                  <div className="text-xs text-slate-400 mt-1">Total Pool</div>
-                </div>
-                <div className="bg-white/5 rounded-xl p-6 text-center">
-                  <Users className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono">{lotteryStatus?.participants || 0}</div>
-                  <div className="text-xs text-slate-400 mt-1">Participants</div>
-                </div>
-              </div>
-              {lotteryStatus?.sources && lotteryStatus.sources.length > 0 && (
-                <div>
-                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 block">Entry Sources</span>
-                  <div className="space-y-2">
-                    {lotteryStatus.sources.map((src: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3">
-                        <span className="text-sm">{src.source}</span>
-                        <span className="text-xs text-cyan-400 font-mono">+{src.tickets} tickets</span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
@@ -1041,459 +1013,9 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
             </div>
           )}
 
-          {/* ==================== INSURANCE ==================== */}
-          {activeTab === "insurance" && (
-            <div className="space-y-6">
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="text-lg font-bold">Insurance</h2>
-                    <p className="text-xs text-slate-400">Protect your BYD vehicle</p>
-                  </div>
-                  <ShieldCheck className="w-6 h-6 text-cyan-400" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  {[
-                    { name: "Basic Shield", premium: 19, limit: 15000, borderClass: "border-slate-500/20", bgClass: "bg-slate-500/5" },
-                    { name: "Standard Executive", premium: 49, limit: 50000, borderClass: "border-cyan-500/20", bgClass: "bg-cyan-500/5" },
-                    { name: "BYD Prestige", premium: 89, limit: 120000, borderClass: "border-emerald-500/20", bgClass: "bg-emerald-500/5" },
-                  ].map((plan, i) => (
-                    <div key={i} className={`${plan.bgClass} ${plan.borderClass} rounded-xl p-5 flex flex-col`}>
-                      <div className="flex-1">
-                        <h3 className="text-base font-bold">{plan.name}</h3>
-                        <div className="mt-2 space-y-1 text-xs text-slate-400">
-                          <p>Coverage: <strong className="text-white">${plan.limit.toLocaleString()}</strong></p>
-                          <p>Premium: <strong className="text-cyan-400">${plan.premium}/mo</strong></p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handlePurchaseInsurance(plan.name, plan.premium, plan.limit)}
-                        disabled={insuranceLoading}
-                        className="mt-4 w-full py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer disabled:opacity-40"
-                      >
-                        Purchase
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Active Policies */}
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <h3 className="text-base font-bold mb-4">Active Policies</h3>
-                {data.insurancePolicies && data.insurancePolicies.length > 0 ? (
-                  <div className="space-y-3">
-                    {data.insurancePolicies.map((p, i) => (
-                      <div key={i} className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-bold">{p.plan_name}</div>
-                          <div className="text-xs text-slate-400">{p.car_model} • Policy: {p.policy_number}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs font-bold text-emerald-400">{p.status}</div>
-                          <div className="text-[10px] text-slate-500">${p.monthly_premium}/mo</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500">No active policies</div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ==================== ELITE TIER ==================== */}
-          {activeTab === "elite" && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-yellow-500/20 to-amber-500/20 border-2 border-yellow-500/30 flex items-center justify-center"><Crown className="w-10 h-10 text-yellow-400" /></div>
-                <h2 className="text-3xl font-bold mb-2">Elite Membership</h2>
-                <p className="text-sm text-slate-400 max-w-lg mx-auto">Unlock the ultimate BYD Horizon experience. Priority access, exclusive events, and unmatched benefits.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[
-                  { tier: "Bronze", points: "0 - 4,999", color: "from-orange-600 to-orange-800", borderColor: "border-orange-500/20", perks: ["Basic rewards", "Standard support", "Community access", "$0.05/mile Drive to Earn"] },
-                  { tier: "Silver", points: "5,000 - 19,999", color: "from-slate-400 to-slate-500", borderColor: "border-slate-400/20", perks: ["1.5x point multiplier", "Priority support", "Exclusive merch drops", "$0.08/mile Drive to Earn", "Monthly bonus spin"] },
-                  { tier: "Gold", points: "20,000 - 49,999", color: "from-yellow-500 to-yellow-600", borderColor: "border-yellow-500/20", perks: ["2x point multiplier", "VIP support line", "Early model access", "$0.10/mile Drive to Earn", "Quarterly mystery car chance", "Exclusive events"] },
-                  { tier: "Elite", points: "50,000 - 99,999", color: "from-purple-500 to-purple-600", borderColor: "border-purple-500/20", perks: ["3x point multiplier", "Dedicated concierge", "Free annual service", "$0.15/mile Drive to Earn", "Priority delivery", "Private test drive events", "Annual Elite gala"] },
-                  { tier: "President's Club", points: "100,000+", color: "from-cyan-400 to-blue-500", borderColor: "border-cyan-500/30", perks: ["5x point multiplier", "Personal account manager", "Complimentary insurance", "$0.20/mile Drive to Earn", "Factory tour invitation", "Custom vehicle spec", "Lifetime Elite status", "Board advisory access"] },
-                ].map((t, i) => {
-                  const currentTier = user.membership_tier || "Standard";
-                  const tierOrder = ["Standard", "Bronze", "Silver", "Gold", "Elite", "President's Club"];
-                  const isCurrentOrAbove = tierOrder.indexOf(currentTier) >= tierOrder.indexOf(t.tier);
-                  const isCurrent = currentTier === t.tier;
-                  return (
-                    <div key={i} className={`bg-white/5 backdrop-blur-xl border ${isCurrent ? "border-yellow-500/50 shadow-lg shadow-yellow-500/10" : t.borderColor} rounded-2xl p-6 relative overflow-hidden`}>
-                      {isCurrent && <div className="absolute top-3 right-3 px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-[9px] font-bold text-yellow-300 font-mono">CURRENT</div>}
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${t.color} flex items-center justify-center mb-4`}>
-                        <Crown className="w-6 h-6 text-white" />
-                      </div>
-                      <h3 className="text-lg font-bold mb-1">{t.tier}</h3>
-                      <p className="text-[10px] text-slate-500 font-mono mb-4">{t.points} points</p>
-                      <ul className="space-y-2">
-                        {t.perks.map((perk, j) => (
-                          <li key={j} className="flex items-start gap-2 text-xs text-slate-300">
-                            <Check className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
-                            <span>{perk}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      {!isCurrentOrAbove && (
-                        <div className="mt-4 pt-4 border-t border-white/5">
-                          <div className="text-[10px] text-slate-500 font-mono mb-2">You need {(t.points === "0 - 4,999" ? "0" : t.points.split(" - ")[0]?.replace(",", "") || "100,000").replace(",", "")} points</div>
-                          <div className="w-full bg-white/5 rounded-full h-2">
-                            <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(100, ((user.horizon_points || 0) / parseInt((t.points.split(" - ")[1] || "100000").replace(",", ""))) * 100)}%` }} />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <h3 className="text-base font-bold mb-4">Your Progress</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center"><div className="text-2xl font-bold text-cyan-400 font-mono">{(user.horizon_points || 0).toLocaleString()}</div><div className="text-[10px] text-slate-500 font-mono">Total Points</div></div>
-                  <div className="text-center"><div className="text-2xl font-bold text-emerald-400 font-mono">{user.membership_tier || "Standard"}</div><div className="text-[10px] text-slate-500 font-mono">Current Tier</div></div>
-                  <div className="text-center"><div className="text-2xl font-bold text-yellow-400 font-mono">{user.referrals_count || 0}</div><div className="text-[10px] text-slate-500 font-mono">Referrals</div></div>
-                  <div className="text-center"><div className="text-2xl font-bold text-purple-400 font-mono">{user.drives_count || 0}</div><div className="text-[10px] text-slate-500 font-mono">Drives Logged</div></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ==================== SUPPORT / CHAT ==================== */}
-          {activeTab === "support" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="text-lg font-bold">Live Chat</h2>
-                      <p className="text-xs text-slate-400">Chat with our support team in real-time</p>
-                    </div>
-                    <HeadphonesIcon className="w-6 h-6 text-cyan-400" />
-                  </div>
-                  <div className="bg-[#0a0e1a] rounded-xl border border-white/5 h-80 flex flex-col">
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                      {chatMessages.map((msg, i) => (
-                        <div key={i} className={`flex gap-3 ${msg.sender === "user" ? "justify-end" : ""}`}>
-                          {msg.sender !== "user" && <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center shrink-0"><HeadphonesIcon className="w-4 h-4 text-cyan-400" /></div>}
-                          <div className={`rounded-xl px-4 py-2 max-w-[80%] ${msg.sender === "user" ? "bg-cyan-500/20" : "bg-white/5"}`}>
-                            <p className={`text-xs ${msg.sender === "user" ? "text-cyan-200" : "text-slate-300"}`}>{msg.text}</p>
-                            <span className={`text-[9px] mt-1 block ${msg.sender === "user" ? "text-cyan-600" : "text-slate-600"}`}>{msg.sender === "user" ? "You" : "Agent"} • {msg.time}</span>
-                          </div>
-                          {msg.sender === "user" && <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center shrink-0"><span className="text-xs font-bold text-cyan-400">U</span></div>}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t border-white/5 p-3 flex gap-2">
-                      <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type your message..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-cyan-500/40" onKeyDown={e => { if (e.key === "Enter" && chatInput.trim()) { const now = "Just now"; setChatMessages(prev => [...prev, { sender: "user", text: chatInput, time: now }]); setChatInput(""); setTimeout(() => { setChatMessages(prev => [...prev, { sender: "agent", text: "Thank you for your message. A support agent will respond shortly. Your ticket has been created.", time: now }]); }, 1500); } }} />
-                      <button onClick={() => { if (chatInput.trim()) { const now = "Just now"; setChatMessages(prev => [...prev, { sender: "user", text: chatInput, time: now }]); setChatInput(""); setTimeout(() => { setChatMessages(prev => [...prev, { sender: "agent", text: "Thank you for your message. A support agent will respond shortly.", time: now }]); }, 1500); } }} className="px-4 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer"><Send className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="text-lg font-bold">Submit Ticket</h2>
-                      <p className="text-xs text-slate-400">Create a formal support ticket</p>
-                    </div>
-                    <MessageSquare className="w-6 h-6 text-cyan-400" />
-                  </div>
-                  <form onSubmit={handleSupportSubmit} className="space-y-4">
-                    <div>
-                      <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Subject</label>
-                      <input type="text" required value={supportSubject} onChange={e => setSupportSubject(e.target.value)} placeholder="Brief description of your issue" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Category</label>
-                      <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40 cursor-pointer">
-                        <option value="general">General Inquiry</option>
-                        <option value="payment">Payment Issue</option>
-                        <option value="rental">Rental Question</option>
-                        <option value="tracking">Tracking Issue</option>
-                        <option value="kyc">KYC Verification</option>
-                        <option value="elite">Elite Membership</option>
-                        <option value="investment">Investment</option>
-                        <option value="bug">Bug Report</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Priority</label>
-                      <div className="flex gap-2">
-                        {["low", "normal", "high", "urgent"].map(p => (
-                          <button key={p} type="button" className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-mono uppercase hover:bg-white/10 transition cursor-pointer">{p}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Message</label>
-                      <textarea required rows={5} value={supportMessage} onChange={e => setSupportMessage(e.target.value)} placeholder="Describe your issue in detail..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40 resize-none" />
-                    </div>
-                    <button type="submit" disabled={supportLoading} className="w-full py-3 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-sm font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer disabled:opacity-40">
-                      {supportLoading ? "Submitting..." : "Submit Ticket"}
-                    </button>
-                  </form>
-                </div>
-              </div>
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <h3 className="text-lg font-bold mb-4">Quick Help</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {[
-                    { q: "How do I pay with crypto?", a: "Select crypto at checkout. Send USDT to the displayed wallet address. Paste your transaction hash for confirmation." },
-                    { q: "When will my vehicle arrive?", a: "Track your order in the Tracking tab. Admin updates ETA and dispatch status in real-time." },
-                    { q: "How do I earn more points?", a: "Daily check-ins, quizzes, referrals, and Drive to Earn all earn Horizon Points. Check the Gamification tab." },
-                    { q: "What are Elite benefits?", a: "Elite members get 3x points, priority delivery, VIP support, and exclusive events. Check the Elite Tier tab." },
-                  ].map((item, i) => (
-                    <div key={i} className="bg-white/5 rounded-xl p-4 cursor-pointer hover:bg-white/10 transition">
-                      <p className="text-xs font-bold mb-2">{item.q}</p>
-                      <p className="text-[10px] text-slate-400">{item.a}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ==================== RENT A VEHICLE ==================== */}
           {activeTab === "rent" && (
             <RentVehiclePage authToken={authToken} onNavigate={onNavigate} />
-          )}
-
-          {/* ==================== INVEST ==================== */}
-          {activeTab === "invest" && (
-            <InvestPage authToken={authToken} userBalance={user.balance || 0} onRefresh={() => loadSummaryData()} />
-          )}
-
-          {/* ==================== TRANSIT / ENVIRONMENT FEED ==================== */}
-          {activeTab === "transit" && (
-            <div className="space-y-6">
-              {data.tracking ? (
-                <TransitUpdatePanel
-                  authToken={authToken}
-                  routeIndex={data.tracking.route_index}
-                  delaysEncountered={data.tracking.delays_encountered}
-                  expeditePaid={data.tracking.expedite_paid}
-                  destinationCity={data.user.city || "New York"}
-                />
-              ) : (
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-center py-12">
-                  <Car className="w-12 h-12 mx-auto mb-3 text-slate-500 opacity-50" />
-                  <p className="text-sm text-slate-500">No active transit data available</p>
-                  <p className="text-xs text-slate-600 mt-1">Complete a purchase or rental to see real-time transit updates</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ==================== BLOG ==================== */}
-          {activeTab === "blog" && (
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-bold">BYD News & Blog</h2>
-                  <p className="text-xs text-slate-400">Latest updates from the Horizon Club</p>
-                </div>
-                <Newspaper className="w-6 h-6 text-cyan-400" />
-              </div>
-              <BlogPostsSection authToken={authToken} onNavigate={onNavigate} />
-            </div>
-          )}
-
-          {/* ==================== DONATIONS ==================== */}
-          {activeTab === "donations" && (
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-bold">Charity & Donations</h2>
-                  <p className="text-xs text-slate-400">Support global causes with your Horizon Points</p>
-                </div>
-                <HeartHandshake className="w-6 h-6 text-cyan-400" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-6 text-center">
-                  <TreePine className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono text-emerald-400">{user.carbon_trees_planted || 0}</div>
-                  <div className="text-xs text-slate-400 mt-1">Trees Planted</div>
-                </div>
-                <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-6 text-center">
-                  <Coins className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono text-cyan-400">{formatBalance(user.horizon_points || 0, false)}</div>
-                  <div className="text-xs text-slate-400 mt-1">Available Points</div>
-                </div>
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 text-center">
-                  <HandCoins className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                  <div className="text-3xl font-bold font-mono text-amber-400">{user.balance ? `$${user.balance.toFixed(0)}` : "$0"}</div>
-                  <div className="text-xs text-slate-400 mt-1">Wallet Balance</div>
-                </div>
-              </div>
-              <div className="bg-white/5 rounded-xl p-6">
-                <h3 className="text-sm font-bold mb-4">Make a Donation</h3>
-                <p className="text-xs text-slate-400 mb-4">Choose a charity to support. Donations are tax-deductible.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-5 flex flex-col">
-                    <TreePine className="w-8 h-8 text-emerald-400 mb-3" />
-                    <h4 className="text-sm font-bold">Green Earth Initiative</h4>
-                    <p className="text-[10px] text-slate-400 mt-1 flex-1">Global reforestation & carbon capture</p>
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
-                      <span className="text-xs font-mono text-cyan-400">500 pts</span>
-                      <button onClick={async () => {
-                        if ((user.horizon_points || 0) < 500) { alert("Insufficient points!"); return; }
-                        try { const res = await fetchWithAuth("/api/charity/donate", "POST", { charity_name: "Green Earth Initiative", points: 500 }); const json = await res.json(); if (res.ok) { alert(json.message || "Donation successful!"); loadSummaryData(); } else alert(json.error || "Donation failed"); } catch { alert("Network error"); }
-                      }} className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-[10px] text-cyan-300 font-bold hover:bg-cyan-500/30 transition cursor-pointer">Donate</button>
-                    </div>
-                  </div>
-                  <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-5 flex flex-col">
-                    <Waves className="w-8 h-8 text-blue-400 mb-3" />
-                    <h4 className="text-sm font-bold">Ocean Cleanup Project</h4>
-                    <p className="text-[10px] text-slate-400 mt-1 flex-1">Remove plastic from our oceans</p>
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
-                      <span className="text-xs font-mono text-cyan-400">300 pts</span>
-                      <button onClick={async () => {
-                        if ((user.horizon_points || 0) < 300) { alert("Insufficient points!"); return; }
-                        try { const res = await fetchWithAuth("/api/charity/donate", "POST", { charity_name: "Ocean Cleanup Project", points: 300 }); const json = await res.json(); if (res.ok) { alert(json.message || "Donation successful!"); loadSummaryData(); } else alert(json.error || "Donation failed"); } catch { alert("Network error"); }
-                      }} className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-[10px] text-cyan-300 font-bold hover:bg-cyan-500/30 transition cursor-pointer">Donate</button>
-                    </div>
-                  </div>
-                  <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-5 flex flex-col">
-                    <BookOpen className="w-8 h-8 text-cyan-400 mb-3" />
-                    <h4 className="text-sm font-bold">EV Education Fund</h4>
-                    <p className="text-[10px] text-slate-400 mt-1 flex-1">Teach sustainable transport</p>
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
-                      <span className="text-xs font-mono text-cyan-400">200 pts</span>
-                      <button onClick={async () => {
-                        if ((user.horizon_points || 0) < 200) { alert("Insufficient points!"); return; }
-                        try { const res = await fetchWithAuth("/api/charity/donate", "POST", { charity_name: "EV Education Fund", points: 200 }); const json = await res.json(); if (res.ok) { alert(json.message || "Donation successful!"); loadSummaryData(); } else alert(json.error || "Donation failed"); } catch { alert("Network error"); }
-                      }} className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-[10px] text-cyan-300 font-bold hover:bg-cyan-500/30 transition cursor-pointer">Donate</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ==================== OUTREACH ==================== */}
-          {activeTab === "outreach" && (
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-bold">Outreach Campaigns</h2>
-                  <p className="text-xs text-slate-400">Spread the word and earn rewards</p>
-                </div>
-                <Megaphone className="w-6 h-6 text-cyan-400" />
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white/5 rounded-xl p-6">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-cyan-400" /> Email Campaign
-                  </h3>
-                  <p className="text-xs text-slate-400 mb-4">Invite friends via email and earn $10 per signup</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="email"
-                      placeholder="friend@email.com"
-                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40"
-                      id="outreach-email"
-                    />
-                    <button
-                      onClick={async () => {
-                        const email = (document.getElementById("outreach-email") as HTMLInputElement)?.value;
-                        if (!email) { alert("Enter an email address"); return; }
-                        try {
-                          const res = await fetchWithAuth("/api/outreach/invite", "POST", { email, method: "email" });
-                          const json = await res.json();
-                          if (res.ok) { alert(json.message || "Invitation sent!"); (document.getElementById("outreach-email") as HTMLInputElement).value = ""; }
-                          else alert(json.error || "Failed");
-                        } catch { alert("Network error"); }
-                      }}
-                      className="px-4 py-3 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="mt-4 bg-cyan-500/5 border border-cyan-500/10 rounded-xl p-3 text-xs text-slate-400">
-                    <span className="text-cyan-400 font-bold">Reward:</span> $10 per referral + 100 bonus points
-                  </div>
-                </div>
-                <div className="bg-white/5 rounded-xl p-6">
-                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Share2 className="w-4 h-4 text-emerald-400" /> Share Your Link
-                  </h3>
-                  <p className="text-xs text-slate-400 mb-4">Share your referral link on social media</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={`https://bydhorizon.com/ref/${user.referral_code}`}
-                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-mono text-cyan-300 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => copyToClipboard(`https://bydhorizon.com/ref/${user.referral_code}`, "ref-link")}
-                      className="px-4 py-3 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer"
-                    >
-                      {copied === "ref-link" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <div className="mt-4 bg-white/5 rounded-xl p-3 space-y-2">
-                    <button
-                      onClick={() => {
-                        const text = `Join me on BYD Horizon Club! Use my referral code: ${user.referral_code} - https://bydhorizon.com/ref/${user.referral_code}`;
-                        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank");
-                      }}
-                      className="w-full py-2 bg-sky-500/20 border border-sky-500/30 rounded-xl text-[10px] font-bold text-sky-300 hover:bg-sky-500/30 transition cursor-pointer"
-                    >
-                      Share on Twitter/X
-                    </button>
-                    <button
-                      onClick={() => {
-                        const text = `Join me on BYD Horizon Club! 🚗⚡ Use my referral code: ${user.referral_code}`;
-                        window.open(`https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(text)}&u=https://bydhorizon.com/ref/${user.referral_code}`, "_blank");
-                      }}
-                      className="w-full py-2 bg-blue-500/20 border border-blue-500/30 rounded-xl text-[10px] font-bold text-blue-300 hover:bg-blue-500/30 transition cursor-pointer"
-                    >
-                      Share on Facebook
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 bg-amber-500/5 border border-amber-500/10 rounded-xl p-4">
-                <h4 className="text-xs font-bold text-amber-300 mb-2 flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" /> Campaign Stats
-                </h4>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-xl font-bold font-mono text-amber-400">{data.referralStats.pendingCount}</div>
-                    <div className="text-[10px] text-slate-400">Pending Invites</div>
-                  </div>
-                  <div>
-                    <div className="text-xl font-bold font-mono text-emerald-400">{data.referralStats.paidCount}</div>
-                    <div className="text-[10px] text-slate-400">Converted</div>
-                  </div>
-                  <div>
-                    <div className="text-xl font-bold font-mono text-cyan-400">{formatBalance(data.referralStats.estimatedEarnings)}</div>
-                    <div className="text-[10px] text-slate-400">Earnings</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ==================== WEBCAMS ==================== */}
-          {activeTab === "webcams" && (
-            <div>
-              <LiveWebcamGrid authToken={authToken} />
-            </div>
-          )}
-
-          {/* ==================== INSPECT ==================== */}
-          {activeTab === "inspect" && (
-            <div>
-              <CarInspectSection />
-            </div>
           )}
 
           {/* ==================== SETTINGS ==================== */}
@@ -1624,6 +1146,612 @@ function ShowroomGrid({ authToken, onNavigate }: { authToken: string; onNavigate
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ==================== SHIPPING LOCATION SELECTOR ====================
+function ShippingLocationSelector() {
+  const [location, setLocation] = useState("");
+  const [customLocation, setCustomLocation] = useState("");
+  const [shippingCost, setShippingCost] = useState<number | null>(null);
+  const [showingDetails, setShowingDetails] = useState(false);
+
+  const predefinedCities = [
+    { name: "New York, USA", region: "North America", distance: 0, cost: 199 },
+    { name: "Los Angeles, USA", region: "North America", distance: 2500, cost: 399 },
+    { name: "London, UK", region: "Europe", distance: 3500, cost: 699 },
+    { name: "Paris, France", region: "Europe", distance: 3600, cost: 699 },
+    { name: "Berlin, Germany", region: "Europe", distance: 3700, cost: 699 },
+    { name: "Dubai, UAE", region: "Middle East", distance: 7000, cost: 1199 },
+    { name: "Tokyo, Japan", region: "Asia", distance: 6700, cost: 1199 },
+    { name: "Sydney, Australia", region: "Oceania", distance: 9000, cost: 1699 },
+    { name: "São Paulo, Brazil", region: "South America", distance: 5000, cost: 999 },
+    { name: "Singapore", region: "Asia", distance: 9500, cost: 1699 },
+    { name: "Mumbai, India", region: "Asia", distance: 8000, cost: 1499 },
+    { name: "Cape Town, South Africa", region: "Africa", distance: 8500, cost: 1499 },
+  ];
+
+  const calcCustomCost = (loc: string) => {
+    const len = loc.length;
+    if (len < 5) return { cost: 199, zone: "Local" };
+    if (len < 10) return { cost: 399, zone: "Regional" };
+    if (len < 15) return { cost: 699, zone: "National" };
+    return { cost: 1199, zone: "International" };
+  };
+
+  const handleCitySelect = (city: typeof predefinedCities[0]) => {
+    setLocation(city.name);
+    setShippingCost(city.cost);
+    setShowingDetails(true);
+  };
+
+  const handleCustomSubmit = () => {
+    if (!customLocation.trim()) return;
+    const result = calcCustomCost(customLocation);
+    setLocation(customLocation);
+    setShippingCost(result.cost);
+    setShowingDetails(true);
+  };
+
+  return (
+    <div>
+      <div className="mb-4">
+        <p className="text-[10px] text-slate-500 font-mono uppercase mb-2">Select a City</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {predefinedCities.map((city, i) => (
+            <button key={i} onClick={() => handleCitySelect(city)} className={`text-left px-3 py-2 rounded-xl border text-xs transition cursor-pointer ${location === city.name ? "bg-cyan-500/20 border-cyan-500/30 text-cyan-300" : "bg-white/5 border-white/10 text-slate-400 hover:border-white/30"}`}>
+              <span className="block font-bold">{city.name.split(",")[0]}</span>
+              <span className="block text-[9px] text-slate-500">{city.region}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="border-t border-white/10 pt-4">
+        <p className="text-[10px] text-slate-500 font-mono uppercase mb-2">Or Enter Custom Location</p>
+        <div className="flex gap-2">
+          <input type="text" value={customLocation} onChange={e => setCustomLocation(e.target.value)} placeholder="City, Country..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40" />
+          <button onClick={handleCustomSubmit} className="px-4 py-2.5 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer">Calculate</button>
+        </div>
+      </div>
+      {showingDetails && shippingCost && (
+        <div className="mt-4 bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 border border-cyan-500/20 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] text-slate-500 font-mono uppercase">Shipping to</span>
+              <p className="text-sm font-bold">{location}</p>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] text-slate-500 font-mono uppercase">Estimated Cost</span>
+              <p className="text-xl font-bold text-emerald-400 font-mono">${shippingCost}</p>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-3 text-[10px]">
+            <div><span className="text-slate-500">Transit Time:</span> <span className="text-white">5-14 business days</span></div>
+            <div><span className="text-slate-500">Insurance:</span> <span className="text-white">Included</span></div>
+            <div><span className="text-slate-500">Tracking:</span> <span className="text-emerald-400">Live GPS ✓</span></div>
+            <div><span className="text-slate-500">Elite Discount:</span> <span className="text-yellow-400">15% OFF</span></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== INSURANCE SECTION ====================
+function InsuranceSection({ user, userBalance, data, fetchWithAuth, onRefresh }: any) {
+  const [insuranceLoading, setInsuranceLoading] = useState(false);
+
+  const handlePurchaseInsurance = async (planName: string, premium: number, coverage: number) => {
+    if (user.kyc_status !== "verified") { alert("KYC verification required."); return; }
+    if ((userBalance || 0) < premium) { alert(`Insufficient balance. Need $${premium}.`); return; }
+    setInsuranceLoading(true);
+    const carModel = data?.activeVehicle?.model || "BYD Seal";
+    try {
+      const res = await fetchWithAuth("/api/insurance/purchase", "POST", { carModel, planName, premium, coverage_limit: coverage });
+      const json = await res.json();
+      if (res.ok) { alert(json.message || "Insurance purchased!"); onRefresh(); }
+      else alert(json.error || "Purchase failed");
+    } catch { alert("Error"); }
+    finally { setInsuranceLoading(false); }
+  };
+
+  return (
+    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-bold">Insurance</h2>
+          <p className="text-xs text-slate-400">Protect your BYD vehicle</p>
+        </div>
+        <ShieldCheck className="w-6 h-6 text-cyan-400" />
+      </div>
+      {user.kyc_status !== "verified" ? (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
+          <UserCheck className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+          <p className="text-sm text-amber-300 font-bold">KYC Required</p>
+          <p className="text-xs text-slate-400 mt-1">Complete identity verification to purchase insurance</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {[
+            { name: "Basic Shield", premium: 19, limit: 15000, borderClass: "border-slate-500/20", bgClass: "bg-slate-500/5" },
+            { name: "Standard Executive", premium: 49, limit: 50000, borderClass: "border-cyan-500/20", bgClass: "bg-cyan-500/5" },
+            { name: "BYD Prestige", premium: 89, limit: 120000, borderClass: "border-emerald-500/20", bgClass: "bg-emerald-500/5" },
+          ].map((plan, i) => (
+            <div key={i} className={`${plan.bgClass} ${plan.borderClass} rounded-xl p-5 flex flex-col`}>
+              <div className="flex-1">
+                <h3 className="text-base font-bold">{plan.name}</h3>
+                <div className="mt-2 space-y-1 text-xs text-slate-400">
+                  <p>Coverage: <strong className="text-white">${plan.limit.toLocaleString()}</strong></p>
+                  <p>Premium: <strong className="text-cyan-400">${plan.premium}/mo</strong></p>
+                </div>
+              </div>
+              <button onClick={() => handlePurchaseInsurance(plan.name, plan.premium, plan.limit)} disabled={insuranceLoading} className="mt-4 w-full py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer disabled:opacity-40">Purchase</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {data.insurancePolicies && data.insurancePolicies.length > 0 && (
+        <div className="border-t border-white/10 pt-4">
+          <h3 className="text-sm font-bold mb-3">Active Policies</h3>
+          <div className="space-y-2">
+            {data.insurancePolicies.map((p: any, i: number) => (
+              <div key={i} className="bg-white/5 rounded-xl p-3 flex items-center justify-between">
+                <div><div className="text-sm font-bold">{p.plan_name}</div><div className="text-[10px] text-slate-400">{p.car_model} • {p.policy_number}</div></div>
+                <div className="text-right"><div className="text-xs font-bold text-emerald-400">{p.status}</div><div className="text-[10px] text-slate-500">${p.monthly_premium}/mo</div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== WITHDRAW SECTION ====================
+function WithdrawSection({ authToken, balance, onRefresh }: { authToken: string; balance: number; onRefresh: () => void }) {
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [withdrawSource, setWithdrawSource] = useState<"balance" | "investment">("balance");
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawMsg, setWithdrawMsg] = useState("");
+  const [withdrawHistory, setWithdrawHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/payments/withdrawals", { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.json()).then(d => setWithdrawHistory(Array.isArray(d) ? d : [])).catch(() => {});
+  }, [authToken]);
+
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || parseFloat(withdrawAmount) < 50) { setWithdrawMsg("Minimum withdrawal: $50"); return; }
+    if (!withdrawAddress) { setWithdrawMsg("Enter your crypto wallet address"); return; }
+    if (parseFloat(withdrawAmount) > balance) { setWithdrawMsg("Insufficient balance"); return; }
+    setWithdrawLoading(true);
+    try {
+      const res = await fetch("/api/payments/withdraw", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ amount: parseFloat(withdrawAmount), walletAddress: withdrawAddress, source: withdrawSource }) });
+      const json = await res.json();
+      if (res.ok) { setWithdrawMsg(json.message || "Withdrawal submitted for admin approval!"); setWithdrawAmount(""); onRefresh(); }
+      else setWithdrawMsg(json.error || "Failed");
+    } catch { setWithdrawMsg("Network error"); }
+    finally { setWithdrawLoading(false); }
+  };
+
+  return (
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
+          <span className="text-xs text-slate-400">Available Balance</span>
+          <span className="text-lg font-bold text-emerald-400 font-mono">${balance.toFixed(2)}</span>
+        </div>
+        <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
+          <span className="text-xs text-slate-400">Minimum</span>
+          <span className="text-lg font-bold text-slate-400 font-mono">$50</span>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Source</label>
+          <div className="flex gap-2">
+            {["balance", "investment"].map(src => (
+              <button key={src} onClick={() => setWithdrawSource(src as any)} className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${withdrawSource === src ? "bg-cyan-500/20 border border-cyan-500/30 text-cyan-300" : "bg-white/5 border border-white/10 text-slate-400 hover:text-white"}`}>
+                {src === "balance" ? "Wallet Balance" : "Investment Returns"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Amount (USD)</label>
+          <input type="number" min="50" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="Enter amount" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500/40" />
+        </div>
+        <div>
+          <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Crypto Wallet Address (USDT TRC20)</label>
+          <input type="text" value={withdrawAddress} onChange={e => setWithdrawAddress(e.target.value)} placeholder="TR7... or 0x..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-cyan-500/40" />
+        </div>
+        {withdrawMsg && <div className={`text-xs rounded-xl p-3 ${withdrawMsg.includes("submitted") || withdrawMsg.includes("success") ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>{withdrawMsg}</div>}
+        <button onClick={handleWithdraw} disabled={withdrawLoading} className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold rounded-xl hover:opacity-90 transition cursor-pointer disabled:opacity-40">
+          {withdrawLoading ? "Processing..." : "Submit Withdrawal"}
+        </button>
+      </div>
+      {withdrawHistory.length > 0 && (
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <h4 className="text-[10px] text-slate-500 font-mono uppercase mb-2">Withdrawal History</h4>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {withdrawHistory.map((w: any, i: number) => (
+              <div key={i} className="flex justify-between bg-white/5 rounded-lg px-3 py-2 text-[10px]">
+                <span className="text-slate-400">${w.amount} {w.source}</span>
+                <span className={`${w.status === "confirmed" ? "text-emerald-400" : w.status === "rejected" ? "text-red-400" : "text-amber-400"}`}>{w.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== MYSTERY CAR REVEAL ====================
+function MysteryCarReveal({ authToken, onClose, onComplete }: { authToken: string; onClose: () => void; onComplete: () => void }) {
+  const [revealing, setRevealing] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [prize, setPrize] = useState<any>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [shippingLoc, setShippingLoc] = useState("");
+  const [notifEmail, setNotifEmail] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const prizes = [
+    { type: "car", model: "BYD Dolphin", value: 29900, chance: 25, image: "Dolphin", desc: "Agile urban hatchback" },
+    { type: "car", model: "BYD Atto 3", value: 38900, chance: 15, image: "Atto3", desc: "Bold electric SUV" },
+    { type: "car", model: "BYD Seal", value: 45900, chance: 8, image: "Seal", desc: "High-performance sedan" },
+    { type: "car", model: "BYD Han", value: 52500, chance: 5, image: "Han", desc: "Executive luxury sedan" },
+    { type: "car", model: "BYD Super 9", value: 85000, chance: 1, image: "Super9", desc: "Limited edition hypercar" },
+    { type: "points", label: "500 Horizon Points", value: 500, chance: 20 },
+    { type: "discount", label: "15% off next rental", value: 15, chance: 15 },
+    { type: "balance", label: "$50 Balance Credit", value: 50, chance: 10 },
+    { type: "insurance", label: "Free 1-Month Insurance", value: 89, chance: 5 },
+  ];
+
+  const handleReveal = () => {
+    setRevealing(true);
+    setTimeout(() => {
+      const rand = Math.random() * 100;
+      let cumulative = 0;
+      let selected = prizes[prizes.length - 1];
+      for (const p of prizes) {
+        cumulative += p.chance;
+        if (rand < cumulative) { selected = p; break; }
+      }
+      setPrize(selected);
+      setRevealed(true);
+      setRevealing(false);
+    }, 2500);
+  };
+
+  const handleClaim = async () => {
+    if (prize?.type === "car" && !shippingLoc) { setMsg("Please enter your shipping location"); return; }
+    setClaiming(true);
+    try {
+      const res = await fetch("/api/elite/mystery-claim", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ prize: prize, shippingLocation: shippingLoc, notificationEmail: notifEmail }) });
+      const json = await res.json();
+      if (res.ok) { setMsg(json.message || "Prize claimed!"); setTimeout(onComplete, 2000); }
+      else setMsg(json.error || "Claim failed");
+    } catch { setMsg("Network error"); }
+    finally { setClaiming(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#0d1117] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+        {!revealed ? (
+          <div className="text-center">
+            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-2 border-purple-500/30 flex items-center justify-center">
+              {revealing ? (
+                <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
+              ) : (
+                <Gem className="w-10 h-10 text-purple-400" />
+              )}
+            </div>
+            <h3 className="text-xl font-bold mb-2">Mystery Car Reveal</h3>
+            <p className="text-sm text-slate-400 mb-6">As an Elite member, you have a chance to win a BYD vehicle or other prizes!</p>
+            {!revealing ? (
+              <button onClick={handleReveal} className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl hover:opacity-90 transition cursor-pointer">Reveal Your Prize</button>
+            ) : (
+              <div className="space-y-3">
+                <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden"><div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-pulse" style={{ width: "60%" }} /></div>
+                <p className="text-xs text-slate-500">Unlocking your prize...</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-yellow-500/20 to-emerald-500/20 border-2 border-yellow-500/30 flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-yellow-400" />
+            </div>
+            <h3 className="text-xl font-bold text-yellow-300 mb-1">Congratulations!</h3>
+            <p className="text-sm text-slate-400 mb-4">You won:</p>
+            <div className="bg-gradient-to-r from-yellow-500/10 to-emerald-500/10 border border-yellow-500/20 rounded-xl p-4 mb-4">
+              {prize?.type === "car" ? (
+                <>
+                  <Car className="w-12 h-12 text-emerald-400 mx-auto mb-2" />
+                  <h4 className="text-lg font-bold text-emerald-300">{prize.model}</h4>
+                  <p className="text-xs text-slate-400">${prize.value?.toLocaleString()} value • {prize.desc}</p>
+                  <p className="text-[10px] text-emerald-400 mt-2">Pay only shipping costs!</p>
+                </>
+              ) : (
+                <>
+                  <GiftIcon className="w-12 h-12 text-purple-400 mx-auto mb-2" />
+                  <h4 className="text-lg font-bold text-purple-300">{prize?.label}</h4>
+                </>
+              )}
+            </div>
+            {prize?.type === "car" && (
+              <div className="space-y-3 text-left">
+                <input type="text" value={shippingLoc} onChange={e => setShippingLoc(e.target.value)} placeholder="Shipping city/country" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40" />
+                <input type="email" value={notifEmail} onChange={e => setNotifEmail(e.target.value)} placeholder="Email for tracking updates" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40" />
+              </div>
+            )}
+            {msg && <div className="text-xs text-emerald-400 mt-2">{msg}</div>}
+            <div className="flex gap-2 mt-4">
+              <button onClick={onClose} className="flex-1 py-2.5 bg-white/10 text-xs font-bold rounded-xl hover:bg-white/15 transition cursor-pointer">Close</button>
+              <button onClick={handleClaim} disabled={claiming} className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-xs font-bold rounded-xl hover:opacity-90 transition cursor-pointer disabled:opacity-40">
+                {claiming ? "Claiming..." : prize?.type === "car" ? "Claim & Setup Shipping" : "Claim Prize"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==================== FINANCIAL HUB SECTION ====================
+function FinancialHubSection({ user, data, authToken, fetchWithAuth, onRefresh, onNavigate, onKycRequired }: any) {
+  const [showMysteryReveal, setShowMysteryReveal] = useState(false);
+
+  return (
+    <div className="space-y-6">
+      {/* Elite Membership */}
+      <div className="bg-white/5 backdrop-blur-xl border border-yellow-500/20 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold">Elite Membership</h2>
+            <p className="text-xs text-slate-400">Unlock premium benefits — $200/month</p>
+          </div>
+          <Crown className="w-6 h-6 text-yellow-400" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            {user.membership_active ? (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+                <BadgeCheck className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                <p className="text-sm font-bold text-emerald-400">Elite Active ✓</p>
+                {user.membership_expiry && <p className="text-[10px] text-slate-400 mt-1">Expires: {new Date(user.membership_expiry).toLocaleDateString()}</p>}
+              </div>
+            ) : (
+              <>
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
+                  <h3 className="text-sm font-bold text-yellow-300 mb-1">$200 / month</h3>
+                  <p className="text-[10px] text-slate-400">Cancel anytime</p>
+                </div>
+                <ul className="space-y-1 text-xs text-slate-300">
+                  {["Access to all investments", "Mystery Car reveal game (win a BYD!)", "15% discount on all rentals", "Priority support & dedicated concierge", "Exclusive events & early access"].map((b, i) => (
+                    <li key={i} className="flex items-center gap-2"><Check className="w-3 h-3 text-emerald-400" /><span>{b}</span></li>
+                  ))}
+                </ul>
+                <button onClick={async () => {
+                  if (!user.kyc_status || user.kyc_status !== "verified") { alert("KYC verification required first."); onKycRequired(); return; }
+                  if ((user.balance || 0) < 200) { alert("Insufficient balance. Please add funds first."); return; }
+                  try { const res = await fetchWithAuth("/api/elite/subscribe", "POST", { planId: "elite", transactionHash: "ELITE-" + Date.now() }); const json = await res.json(); if (res.ok) { alert(json.message || "Elite subscription submitted!"); onRefresh(); } else alert(json.error || "Failed"); } catch { alert("Error"); }
+                }} className="w-full py-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-[#0a0e1a] font-bold text-sm rounded-xl hover:opacity-90 transition cursor-pointer">
+                  Activate Elite — $200
+                </button>
+              </>
+            )}
+            {user.membership_active && (
+              <button onClick={() => setShowMysteryReveal(true)} className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-sm rounded-xl hover:opacity-90 transition cursor-pointer flex items-center justify-center gap-2">
+                <Gem className="w-4 h-4" /> Reveal Your Mystery Car
+              </button>
+            )}
+          </div>
+          <div className="bg-gradient-to-br from-yellow-500/10 to-amber-500/5 border border-yellow-500/20 rounded-xl p-4">
+            <h3 className="text-sm font-bold mb-3">Elite Benefits</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between text-xs"><span className="text-slate-400">Investment Access</span><span className="text-emerald-400 font-bold">✓</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-400">Rental Discount</span><span className="text-emerald-400 font-bold">15% OFF</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-400">Mystery Car Draw</span><span className="text-purple-400 font-bold">✓</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-400">Priority Support</span><span className="text-emerald-400 font-bold">✓</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mystery Car Reveal Modal */}
+      {showMysteryReveal && (
+        <MysteryCarReveal authToken={authToken} onClose={() => setShowMysteryReveal(false)} onComplete={() => { setShowMysteryReveal(false); onRefresh(); }} />
+      )}
+
+      {/* Investments */}
+      <div className="bg-white/5 backdrop-blur-xl border border-emerald-500/20 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold">Investments</h2>
+            <p className="text-xs text-slate-400">Elite members only — Maturity-based returns (APY)</p>
+          </div>
+          <TrendingUp className="w-6 h-6 text-emerald-400" />
+        </div>
+        {user.membership_active ? (
+          <InvestPage authToken={authToken} userBalance={user.balance || 0} onRefresh={onRefresh} />
+        ) : (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
+            <Crown className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+            <p className="text-sm text-amber-300 font-bold">Elite Membership Required</p>
+            <p className="text-xs text-slate-400 mt-1">Subscribe to Elite ($200/mo) to unlock investments</p>
+            <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="mt-3 px-4 py-2 bg-amber-500/30 rounded-xl text-xs font-bold text-amber-300 cursor-pointer">Activate Elite</button>
+          </div>
+        )}
+      </div>
+
+      {/* Insurance */}
+      <InsuranceSection user={user} userBalance={user.balance || 0} data={data} fetchWithAuth={fetchWithAuth} onRefresh={onRefresh} />
+
+      {/* Charitable Donations */}
+      <DonationsSection user={user} data={data} fetchWithAuth={fetchWithAuth} onRefresh={onRefresh} onKycRequired={onKycRequired} />
+
+      {/* Withdraw */}
+      <WithdrawSection authToken={authToken} balance={user.balance || 0} onRefresh={onRefresh} />
+    </div>
+  );
+}
+
+// ==================== DONATIONS SECTION ====================
+function DonationsSection({ user, data, fetchWithAuth, onRefresh, onKycRequired }: any) {
+  return (
+    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-lg font-bold">Charity & Donations</h2>
+          <p className="text-xs text-slate-400">Support global causes with your Horizon Points or balance</p>
+        </div>
+        <HeartHandshake className="w-6 h-6 text-cyan-400" />
+      </div>
+      {user.kyc_status !== "verified" ? (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
+          <UserCheck className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+          <p className="text-sm text-amber-300 font-bold">KYC Required</p>
+          <p className="text-xs text-slate-400 mt-1">Complete identity verification to make donations</p>
+          <button onClick={onKycRequired} className="mt-3 px-4 py-2 bg-amber-500/30 rounded-xl text-xs font-bold text-amber-300 cursor-pointer">Complete KYC</button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-6 text-center">
+              <TreePine className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+              <div className="text-3xl font-bold font-mono text-emerald-400">{user.carbon_trees_planted || 0}</div>
+              <div className="text-xs text-slate-400 mt-1">Trees Planted</div>
+            </div>
+            <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-6 text-center">
+              <Coins className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
+              <div className="text-3xl font-bold font-mono text-cyan-400">{(user.horizon_points || 0).toLocaleString()}</div>
+              <div className="text-xs text-slate-400 mt-1">Available Points</div>
+            </div>
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 text-center">
+              <DollarSign className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+              <div className="text-3xl font-bold font-mono text-amber-400">${(user.balance || 0).toFixed(0)}</div>
+              <div className="text-xs text-slate-400 mt-1">Wallet Balance</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { name: "Green Earth Initiative", icon: TreePine, color: "emerald", points: 500 },
+              { name: "Ocean Cleanup Project", icon: Ship, color: "blue", points: 300 },
+              { name: "EV Education Fund", icon: BookOpen, color: "cyan", points: 200 },
+            ].map((c, i) => (
+              <div key={i} className={`bg-${c.color}-500/5 border border-${c.color}-500/20 rounded-xl p-5 flex flex-col`}>
+                <c.icon className={`w-8 h-8 text-${c.color}-400 mb-3`} />
+                <h4 className="text-sm font-bold">{c.name}</h4>
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
+                  <span className="text-xs font-mono text-cyan-400">{c.points} pts</span>
+                  <button onClick={async () => {
+                    if ((user.horizon_points || 0) < c.points) { alert("Insufficient points!"); return; }
+                    try { const res = await fetchWithAuth("/api/charity/donate", "POST", { charity_name: c.name, points: c.points }); const json = await res.json(); if (res.ok) { alert(json.message || "Donation successful!"); onRefresh(); } else alert(json.error || "Donation failed"); } catch { alert("Network error"); }
+                  }} className="px-3 py-1.5 bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-[10px] text-cyan-300 font-bold hover:bg-cyan-500/30 transition cursor-pointer">Donate</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ==================== HELP CENTER SECTION ====================
+function HelpCenterSection({ authToken, chatMessages, chatInput, setChatInput, supportSubject, setSupportSubject, supportMessage, setSupportMessage, supportLoading, handleSupportSubmit, onNavigate }: any) {
+  const [localChatInput, setLocalChatInput] = useState("");
+  const [localMessages, setLocalMessages] = useState<any[]>(chatMessages || []);
+
+  const handleSend = () => {
+    if (!localChatInput.trim()) return;
+    setLocalMessages((p: any[]) => [...p, { sender: "user", text: localChatInput, time: "now" }]);
+    setLocalChatInput("");
+    setTimeout(() => setLocalMessages((p: any[]) => [...p, { sender: "agent", text: "Thank you. A support agent will respond shortly.", time: "now" }]), 1500);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Support Chat */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold">Live Support</h2>
+            <p className="text-xs text-slate-400">Chat with our team or submit a ticket</p>
+          </div>
+          <HeadphonesIcon className="w-6 h-6 text-cyan-400" />
+        </div>
+        <div className="bg-[#0a0e1a] rounded-xl border border-white/5 h-56 flex flex-col mb-4">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {localMessages.length === 0 && <p className="text-xs text-slate-500 text-center py-8">Start a conversation</p>}
+            {localMessages.map((msg: any, i: number) => (
+              <div key={i} className={`flex gap-2 ${msg.sender === "user" ? "justify-end" : ""}`}>
+                {msg.sender !== "user" && <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center shrink-0"><HeadphonesIcon className="w-3 h-3 text-cyan-400" /></div>}
+                <div className={`rounded-xl px-3 py-2 max-w-[80%] ${msg.sender === "user" ? "bg-cyan-500/20" : "bg-white/5"}`}><p className="text-xs">{msg.text}</p></div>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-white/5 p-2 flex gap-2">
+            <input type="text" value={localChatInput} onChange={e => setLocalChatInput(e.target.value)} placeholder="Type a message..." className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-cyan-500/40" onKeyDown={e => { if (e.key === "Enter") handleSend(); }} />
+            <button onClick={handleSend} className="px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-lg cursor-pointer"><Send className="w-3 h-3 text-cyan-300" /></button>
+          </div>
+        </div>
+        <form onSubmit={handleSupportSubmit} className="space-y-3">
+          <input type="text" required value={supportSubject} onChange={e => setSupportSubject(e.target.value)} placeholder="Issue subject" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40" />
+          <textarea required rows={3} value={supportMessage} onChange={e => setSupportMessage(e.target.value)} placeholder="Describe your issue..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40 resize-none" />
+          <button type="submit" disabled={supportLoading} className="w-full py-2.5 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer disabled:opacity-40">{supportLoading ? "Submitting..." : "Submit Ticket"}</button>
+        </form>
+      </div>
+
+      {/* Telegram + Blog */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white/5 backdrop-blur-xl border border-cyan-500/20 rounded-2xl p-6 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-[#0088cc]/20 flex items-center justify-center shrink-0">
+            <Send className="w-7 h-7 text-[#0088cc]" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-bold">Telegram Help Desk</h3>
+            <p className="text-[10px] text-slate-400">Get instant support from our team</p>
+          </div>
+          <a href="https://t.me/byd_horizon_support" target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-[#0088cc] text-white text-xs font-bold rounded-xl hover:bg-[#0088cc]/90 transition cursor-pointer flex items-center gap-2 whitespace-nowrap">
+            <Send className="w-3.5 h-3.5" /> Message Us
+          </a>
+        </div>
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold">BYD News & Blog</h3>
+            <BookOpen className="w-4 h-4 text-cyan-400" />
+          </div>
+          <BlogPostsSection authToken={authToken} onNavigate={onNavigate} />
+        </div>
+      </div>
+
+      {/* FAQ */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <h3 className="text-sm font-bold mb-3">Quick Help</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {[
+            { q: "How do I pay with crypto?", a: "Send USDT (TRC20) to your deposit address. Paste the transaction hash for confirmation." },
+            { q: "When will my vehicle arrive?", a: "Track live in Tracking & Transit. Admin updates ETA and dispatch status." },
+            { q: "How do I earn more points?", a: "Daily check-ins, quizzes, referrals, and Spin Wheel all earn Horizon Points." },
+            { q: "What does Elite include?", a: "$200/mo for investments, mystery car game, 15% off rentals, priority support." },
+            { q: "How do withdrawals work?", a: "Submit withdrawal request in Financial Hub. Admin confirms and sends crypto." },
+            { q: "What is the minimum deposit?", a: "Minimum crypto deposit is $150 USDT (TRC20). Admin confirms all deposits." },
+          ].map((item, i) => (
+            <div key={i} className="bg-white/5 rounded-xl p-3 cursor-pointer hover:bg-white/10 transition">
+              <p className="text-xs font-bold mb-1">{item.q}</p>
+              <p className="text-[10px] text-slate-400">{item.a}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -192,7 +192,9 @@ export async function getDb() {
     `CREATE TABLE IF NOT EXISTS support_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT NOT NULL, email TEXT NOT NULL, subject TEXT NOT NULL, message TEXT NOT NULL, status TEXT DEFAULT 'open', priority TEXT DEFAULT 'normal', assigned_agent TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS byd_offices (id INTEGER PRIMARY KEY AUTOINCREMENT, city TEXT NOT NULL, country TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, region TEXT, stock_json TEXT DEFAULT '{}')`,
     `CREATE TABLE IF NOT EXISTS insurance_tiers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, daily_rate REAL NOT NULL, coverage_limit REAL NOT NULL, deductible REAL DEFAULT 0, description TEXT, is_active INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0)`,
-    `CREATE TABLE IF NOT EXISTS master_ai_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT NOT NULL UNIQUE, api_key TEXT NOT NULL, webhook_url TEXT, status TEXT DEFAULT 'connected', last_sync TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`
+    `CREATE TABLE IF NOT EXISTS master_ai_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT NOT NULL UNIQUE, api_key TEXT NOT NULL, webhook_url TEXT, status TEXT DEFAULT 'connected', last_sync TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, amount REAL NOT NULL, wallet_address TEXT NOT NULL, currency TEXT DEFAULT 'USDT', network TEXT DEFAULT 'TRC20', status TEXT CHECK(status IN ('pending','confirmed','rejected')) DEFAULT 'pending', admin_note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE)`,
+    `CREATE TABLE IF NOT EXISTS mystery_car_prizes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, prize_name TEXT NOT NULL, prize_value REAL DEFAULT 0, prize_type TEXT DEFAULT 'prize', claimed INTEGER DEFAULT 0, shipping_city TEXT, shipping_location TEXT, shipping_email TEXT, shipping_cost REAL DEFAULT 0, shipping_paid INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE)`
   ];
 
   for (const sql of tables) {
@@ -220,6 +222,8 @@ export async function getDb() {
   await migrateCol("totp_enabled", "INTEGER DEFAULT 0");
 
   try { await dbInstance!.exec(`ALTER TABLE map_tracking ADD COLUMN car_id INTEGER`); } catch {}
+  try { await dbInstance!.exec(`ALTER TABLE investments ADD COLUMN maturity_date TEXT`); } catch {}
+  try { await dbInstance!.exec(`ALTER TABLE investments ADD COLUMN started_at TEXT`); } catch {}
 
   // Disable non-crypto payment methods (crypto only)
   try { await dbInstance!.run("UPDATE payment_methods SET enabled = 0, processing_time = 'Currently unavailable' WHERE method != 'crypto'"); } catch {}

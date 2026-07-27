@@ -6,7 +6,7 @@ import AdminPanel from "./components/AdminPanel";
 import HelpPage from "./components/HelpPage";
 import SupportWidget from "./components/SupportWidget";
 import { VehiclesPage } from "./components/pages/VehiclesPage";
-import { Home, Compass, HelpCircle, LogOut, User, Shield, Bell, Zap, Menu, X, UserCheck, Car, Gift, Award, MapPin, Gamepad2, Leaf, Ticket, DollarSign, BarChart3, Settings, Users, CreditCard, Truck, MessageSquare, BookOpen, Sparkles, LayoutDashboard, Search, HeartHandshake, Megaphone, Grid3X3, Camera, Newspaper, Crown, TrendingUp } from "lucide-react";
+import { Home, Compass, HelpCircle, LogOut, User, Shield, Bell, Zap, Menu, X, UserCheck, Car, Gift, Award, MapPin, Gamepad2, DollarSign, BarChart3, Settings, Users, CreditCard, MessageSquare, Sparkles, LayoutDashboard, Search, HeartHandshake, Grid3X3, Camera, Crown, TrendingUp, Map, Navigation, Mail, Smartphone, Wallet, QrCode, Copy, Check, RefreshCw, ExternalLink } from "lucide-react";
 import AIChatWidget from "./components/AIChatWidget";
 
 export default function App() {
@@ -125,25 +125,15 @@ export default function App() {
 
   const sidebarItems = [
     { icon: BarChart3, label: "Dashboard", view: "dashboard" as const, tab: "dashboard" },
-    { icon: MapPin, label: "Tracking", view: "dashboard" as const, tab: "tracking" },
-    { icon: Compass, label: "Transit", view: "dashboard" as const, tab: "transit" },
     { icon: Grid3X3, label: "Showroom", view: "vehicles" as const },
     { icon: Car, label: "Rent a Vehicle", view: "dashboard" as const, tab: "rent" },
-    { icon: TrendingUp, label: "Invest", view: "dashboard" as const, tab: "invest" },
+    { icon: MapPin, label: "Tracking & Transit", view: "dashboard" as const, tab: "tracking" },
+    { icon: TrendingUp, label: "Financial Hub", view: "dashboard" as const, tab: "finance" },
+    { icon: MessageSquare, label: "Help Center", view: "dashboard" as const, tab: "help" },
+    { icon: Gamepad2, label: "Games", view: "dashboard" as const, tab: "games" },
     { icon: Users, label: "Referrals", view: "dashboard" as const, tab: "referrals" },
     { icon: Gift, label: "Rewards", view: "dashboard" as const, tab: "rewards" },
-    { icon: HeartHandshake, label: "Donations", view: "dashboard" as const, tab: "donations" },
-    { icon: Megaphone, label: "Outreach", view: "dashboard" as const, tab: "outreach" },
-    { icon: Gamepad2, label: "Gaming", view: "dashboard" as const, tab: "gamification" },
-    { icon: Car, label: "Drive to Earn", view: "dashboard" as const, tab: "drive2earn" },
-    { icon: Truck, label: "Mystery Car", view: "dashboard" as const, tab: "mysterycar" },
-    { icon: Leaf, label: "Carbon Offset", view: "dashboard" as const, tab: "carbon" },
-    { icon: Ticket, label: "Lottery", view: "dashboard" as const, tab: "lottery" },
     { icon: UserCheck, label: "KYC", view: "dashboard" as const, tab: "kyc" },
-    { icon: Shield, label: "Insurance", view: "dashboard" as const, tab: "insurance" },
-    { icon: Crown, label: "Elite Tier", view: "dashboard" as const, tab: "elite" },
-    { icon: Newspaper, label: "Blog", view: "dashboard" as const, tab: "blog" },
-    { icon: MessageSquare, label: "Support", view: "dashboard" as const, tab: "support" },
     { icon: Settings, label: "Settings", view: "dashboard" as const, tab: "settings" },
   ];
 

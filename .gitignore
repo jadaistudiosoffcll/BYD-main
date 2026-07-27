@@ -3,6 +3,10 @@ build/
 dist/
 coverage/
 .DS_Store
+database.sqlite
+database.sqlite.corrupt-*
+server_err.txt
+server_out.txt
 *.log
 .env*
 !.env.example

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { TrendingUp, DollarSign, Wallet, Check, ArrowUpRight, Loader2, BarChart3, Clock, Shield, Zap, Globe } from "lucide-react";
 
 interface InvestmentOption { id: number; name: string; description: string; min_amount: number; projected_apy: number; category: string; image_url: string; }
-interface UserInvestment { id: number; option_name: string; amount: number; projected_apy: number; current_return: number; status: string; investment_number: string; created_at: string; }
+interface UserInvestment { id: number; option_name: string; amount: number; projected_apy: number; current_return: number; status: string; investment_number: string; created_at: string; maturity_date: string; }
 interface Props { authToken: string; userBalance: number; onRefresh: () => void; }
 
 const TESTIMONIALS = [
@@ -139,18 +139,22 @@ export function InvestPage({ authToken, userBalance, onRefresh }: Props) {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
           <h3 className="text-lg font-bold mb-4">My Investments</h3>
           <div className="space-y-3">
-            {myInvestments.map(inv => (
+            {myInvestments.map(inv => {
+              const daysLeft = inv.maturity_date ? Math.max(0, Math.ceil((new Date(inv.maturity_date).getTime() - Date.now()) / 86400000)) : null;
+              return (
               <div key={inv.id} className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-bold">{inv.option_name}</div>
                   <div className="text-[10px] text-slate-500 font-mono">{inv.investment_number} • {inv.created_at?.split("T")[0]}</div>
+                  {daysLeft !== null && <div className="text-[10px] text-cyan-400 font-mono mt-1">{daysLeft > 0 ? `${daysLeft} days to maturity` : 'Matured'}</div>}
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-mono">${inv.amount}</div>
                   <div className="text-[10px] text-emerald-400 font-mono">+${inv.current_return.toFixed(2)} ({inv.projected_apy}% APY)</div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       )}

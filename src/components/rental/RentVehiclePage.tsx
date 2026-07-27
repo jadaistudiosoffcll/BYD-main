@@ -43,8 +43,17 @@ export function RentVehiclePage({ authToken, onNavigate }: Props) {
   const [filterCategory, setFilterCategory] = useState("all");
   const [sortBy, setSortBy] = useState("price");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isElite, setIsElite] = useState(false);
 
-  useEffect(() => { fetchVehicles(); }, []);
+  useEffect(() => { fetchVehicles(); checkEliteStatus(); }, []);
+
+  const checkEliteStatus = async () => {
+    try {
+      const res = await fetch("/api/dashboard/summary", { headers: { Authorization: `Bearer ${authToken}` } });
+      const data = await res.json();
+      setIsElite(!!data?.membership_active);
+    } catch {}
+  };
 
   const fetchVehicles = async () => {
     try {
@@ -67,14 +76,16 @@ export function RentVehiclePage({ authToken, onNavigate }: Props) {
   useEffect(() => { if (selectedVehicle && booking.startDate && booking.endDate) checkAvailability(); }, [booking.startDate, booking.endDate, selectedVehicle]);
 
   const calculateTotal = () => {
-    if (!selectedVehicle) return { daily: 0, days: 0, subtotal: 0, insurance: 0, extras: 0, delivery: 0, total: 0 };
+    if (!selectedVehicle) return { daily: 0, days: 0, subtotal: 0, insurance: 0, extras: 0, delivery: 0, total: 0, discount: 0, discountAmt: 0 };
     const days = booking.startDate && booking.endDate ? Math.max(1, Math.ceil((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / 86400000)) : 1;
-    const daily = availability?.price_per_day || selectedVehicle.rental_price_per_day || 150;
+    const baseDaily = availability?.price_per_day || selectedVehicle.rental_price_per_day || 200;
+    const daily = isElite ? Math.round(baseDaily * 0.85 * 100) / 100 : baseDaily;
+    const discountAmt = isElite ? Math.round((baseDaily - daily) * days * 100) / 100 : 0;
     const insurance = (INSURANCE_TIERS.find(t => t.id === booking.insuranceTier)?.price || 10) * days;
     const extras = (booking.extras.gps ? 5 : 0) + (booking.extras.childSeat ? 8 : 0) + (booking.extras.roofRack ? 12 : 0) + (booking.extras.winterTires ? 15 : 0);
     const delivery = DELIVERY_CITIES.find(c => c.city === booking.deliveryCity)?.fee || 0;
     const subtotal = daily * days + insurance + extras + delivery;
-    return { daily, days, subtotal, insurance, extras, delivery, total: subtotal };
+    return { daily, days, subtotal, insurance, extras, delivery, total: subtotal, discount: isElite ? 15 : 0, discountAmt };
   };
 
   const handleBook = async () => {
@@ -199,6 +210,7 @@ export function RentVehiclePage({ authToken, onNavigate }: Props) {
                 <div className="flex justify-between"><span className="text-slate-400">Vehicle</span><span>{selectedVehicle.model}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Duration</span><span className="font-mono">{totals.days} days</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Daily Rate</span><span className="font-mono">${totals.daily}/day</span></div>
+                {totals.discount > 0 && <div className="flex justify-between text-emerald-400"><span className="text-slate-400">Elite Discount ({totals.discount}%)</span><span className="font-mono">-${totals.discountAmt}</span></div>}
                 <div className="flex justify-between"><span className="text-slate-400">Rental Cost</span><span className="font-mono">${totals.daily * totals.days}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Insurance</span><span className="font-mono">${totals.insurance}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Add-Ons</span><span className="font-mono">${totals.extras}</span></div>

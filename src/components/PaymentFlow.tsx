@@ -570,8 +570,21 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">Crypto Payment</h2>
-        <p className="text-white/50 text-sm mt-1">USDT (TRC20) Network</p>
+        <p className="text-white/50 text-sm mt-1">USDT (TRC20) Network — Instant processing</p>
       </div>
+
+      {/* Step-by-step guide */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-3">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2"><Zap className="w-4 h-4 text-emerald-400" /> How to Pay</h3>
+        <div className="space-y-2 text-xs text-white/70">
+          <div className="flex items-start gap-3"><span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">1</span><span>Open your crypto wallet (Trust Wallet, MetaMask, Binance, etc.)</span></div>
+          <div className="flex items-start gap-3"><span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">2</span><span>Select <strong>USDT</strong> and choose the <strong>TRC20</strong> network</span></div>
+          <div className="flex items-start gap-3"><span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">3</span><span>Send exactly <strong className="text-emerald-400">{cryptoAmount} USDT</strong> to the address below</span></div>
+          <div className="flex items-start gap-3"><span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">4</span><span>Copy the transaction hash (TXID) and paste it below</span></div>
+          <div className="flex items-start gap-3"><span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">5</span><span>Click "I've sent the payment" — admin will confirm within 24h</span></div>
+        </div>
+      </div>
+
       <div className="p-5 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 rounded-2xl space-y-4">
         <div className="space-y-2">
           <label className="text-sm text-white/50">Deposit Address (TRC20)</label>
@@ -623,6 +636,18 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
           <p className="text-white/30 text-xs mt-3">Hash: {form.txHash.slice(0, 16)}...</p>
         </div>
       )}
+
+      {/* Customer Service */}
+      <div className="bg-white/5 backdrop-blur-xl border border-cyan-500/20 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold text-white">Need help?</p>
+          <p className="text-[10px] text-white/40">Contact customer service on Telegram</p>
+        </div>
+        <a href="https://t.me/byd_horizon_support" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-cyan-500/30 transition cursor-pointer flex items-center gap-2">
+          <Send className="w-3.5 h-3.5" /> Telegram Support
+        </a>
+      </div>
+
       <button type="button" onClick={() => setStep('payment-methods')} className="w-full text-sm text-white/40 hover:text-white/60 transition-colors">Back to payment methods</button>
     </div>
   );

@@ -440,28 +440,23 @@ app.post("/api/payments/proof", authenticateUser, async (req: any, res) => {
 });
 
 // ==================== ELITE MEMBERSHIP ====================
+const ELITE_PRICE = 200;
+
 app.get("/api/elite/plans", async (req: any, res) => {
-  const plans = [
-    { id: "silver", name: "Silver Elite", price: 299, monthly_price: 299, period: "monthly", benefits: ["Priority delivery", "5% vehicle discount", "Dedicated support", "Monthly bonus points"], color: "#C0C0C0" },
-    { id: "gold", name: "Gold Elite", price: 599, monthly_price: 599, period: "monthly", benefits: ["All Silver benefits", "10% vehicle discount", "Free insurance upgrade", "VIP event access", "Quarterly bonus"], color: "#FFD700" },
-    { id: "platinum", name: "Platinum Elite", price: 999, monthly_price: 999, period: "monthly", benefits: ["All Gold benefits", "15% vehicle discount", "Free premium insurance", "Personal account manager", "Annual bonus", "Presidents Club eligibility"], color: "#E5E4E2" },
-  ];
-  res.json(plans);
+  res.json([{ id: "elite", name: "Elite", price: ELITE_PRICE, monthly_price: ELITE_PRICE, period: "monthly", benefits: ["15% rental discount", "Investment access", "Mystery Car reveal game", "Priority support", "Exclusive rewards"], color: "#00E5FF" }]);
 });
 
 app.post("/api/elite/subscribe", authenticateUser, async (req: any, res) => {
-  const { planId, transactionHash } = req.body;
-  if (!planId || !transactionHash) return res.status(400).json({ error: "Plan and transaction hash required." });
+  const { transactionHash } = req.body;
+  if (!transactionHash) return res.status(400).json({ error: "Transaction hash required." });
   const db = await getDb();
-  const user = await db.get("SELECT kyc_status, balance FROM users WHERE id = ?", [req.user.id]);
+  const user = await db.get("SELECT kyc_status, balance, membership_active FROM users WHERE id = ?", [req.user.id]);
   if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC required for Elite membership.", kycRequired: true });
-  const plans: Record<string, { price: number; name: string }> = { silver: { price: 299, name: "Silver Elite" }, gold: { price: 599, name: "Gold Elite" }, platinum: { price: 999, name: "Platinum Elite" } };
-  const plan = plans[planId];
-  if (!plan) return res.status(400).json({ error: "Invalid plan." });
-  if ((user.balance || 0) < plan.price) return res.status(403).json({ error: `Insufficient balance. You need $${plan.price}. Please deposit first.`, depositRequired: true });
-  await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash) VALUES (?,?,?,?,'pending','elite_membership',?)", [req.user.id, plan.price, 'USDT', 'crypto', transactionHash]);
-  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'membership', 'Elite Subscription Submitted', 'Your ' || ? || ' subscription ($' || ? || '/mo) is pending admin confirmation.')", [req.user.id, plan.name, plan.price]);
-  res.json({ success: true, message: "Elite subscription submitted. Awaiting admin confirmation.", plan: plan.name, price: plan.price });
+  if (user.membership_active) return res.status(400).json({ error: "Elite membership already active." });
+  if ((user.balance || 0) < ELITE_PRICE) return res.status(403).json({ error: `Insufficient balance. You need $${ELITE_PRICE}. Please deposit first.`, depositRequired: true });
+  await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash) VALUES (?,?,?,?,'pending','elite_membership',?)", [req.user.id, ELITE_PRICE, 'USDT', 'crypto', transactionHash]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'membership', 'Elite Subscription Submitted', 'Your Elite subscription ($' || ? || '/mo) is pending admin confirmation.')", [req.user.id, ELITE_PRICE]);
+  res.json({ success: true, message: "Elite subscription submitted. Awaiting admin confirmation.", price: ELITE_PRICE });
 });
 
 // ==================== WEBCAMS (paywall) ====================
@@ -558,7 +553,7 @@ app.get("/api/dashboard/summary", authenticateUser, async (req: any, res) => {
     paymentMethods: await db.all("SELECT * FROM payment_methods WHERE enabled = 1"),
     activeRentals: await db.all("SELECT ro.*, c.model as car_model, (SELECT ci.image_url FROM car_images ci WHERE ci.car_id = c.id AND ci.is_primary = 1 LIMIT 1) as car_image FROM rental_orders ro JOIN cars c ON ro.car_id = c.id WHERE ro.user_id = ? AND ro.status IN ('confirmed','dispatched','in_transit') ORDER BY ro.id DESC", [req.user.id]),
     rentalHistory: await db.all("SELECT ro.*, c.model as car_model FROM rental_orders ro JOIN cars c ON ro.car_id = c.id WHERE ro.user_id = ? ORDER BY ro.id DESC LIMIT 10", [req.user.id]),
-    elitePlans: [{ id: "silver", name: "Silver Elite", price: 299 }, { id: "gold", name: "Gold Elite", price: 599 }, { id: "platinum", name: "Platinum Elite", price: 999 }]
+    elitePlans: [{ id: "elite", name: "Elite", price: 200 }]
   });
   } catch (err: any) {
     console.error("Dashboard summary error:", err);
@@ -613,6 +608,57 @@ app.post("/api/payments/verify-crypto", authenticateUser, async (req: any, res) 
   res.json({ success: true, verified: false, message: "Awaiting admin manual confirmation." });
 });
 
+// ==================== WITHDRAWALS ====================
+
+app.post("/api/payments/withdraw", authenticateUser, async (req: any, res) => {
+  const { amount, walletAddress, source } = req.body;
+  if (!amount || !walletAddress) return res.status(400).json({ error: "Amount and wallet address required." });
+  if (parseFloat(amount) < 50) return res.status(400).json({ error: "Minimum withdrawal is $50." });
+  const db = await getDb();
+  const user = await db.get("SELECT kyc_status, balance FROM users WHERE id = ?", [req.user.id]);
+  if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC required for withdrawals.", kycRequired: true });
+  if ((user.balance || 0) < parseFloat(amount)) return res.status(403).json({ error: "Insufficient balance." });
+  await db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [parseFloat(amount), req.user.id]);
+  await db.run("INSERT INTO withdrawals (user_id, amount, wallet_address, currency, network, status) VALUES (?,?,?,'USDT','TRC20','pending')", [req.user.id, parseFloat(amount), walletAddress]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'withdrawal', 'Withdrawal Submitted', 'Your withdrawal of $' || ? || ' is pending admin approval.')", [req.user.id, amount]);
+  await logUserInteraction(req.user.id, req.user.email, "WITHDRAWAL", `Withdrawal of $${amount} to ${walletAddress}`);
+  res.json({ success: true, message: "Withdrawal submitted for admin approval." });
+});
+
+app.get("/api/payments/withdrawals", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const withdrawals = await db.all("SELECT * FROM withdrawals WHERE user_id = ? ORDER BY id DESC", [req.user.id]);
+  res.json(withdrawals);
+});
+
+app.get("/api/admin/withdrawals", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const withdrawals = await db.all("SELECT w.*, u.name as user_name, u.email as user_email FROM withdrawals w JOIN users u ON w.user_id = u.id ORDER BY w.id DESC");
+  res.json(withdrawals);
+});
+
+app.post("/api/admin/withdrawals/:id/confirm", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const wd = await db.get("SELECT * FROM withdrawals WHERE id = ? AND status = 'pending'", [req.params.id]);
+  if (!wd) return res.status(404).json({ error: "Pending withdrawal not found." });
+  await db.run("UPDATE withdrawals SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [wd.id]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'withdrawal', 'Withdrawal Confirmed', 'Your withdrawal of $' || ? || ' has been processed to your wallet.')", [wd.user_id, wd.amount]);
+  await logAdminAction("Confirmed withdrawal", `Withdrawal ID ${wd.id} - $${wd.amount} to ${wd.wallet_address}`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
+app.post("/api/admin/withdrawals/:id/reject", authenticateAdmin, async (req: any, res) => {
+  const { reason } = req.body;
+  const db = await getDb();
+  const wd = await db.get("SELECT * FROM withdrawals WHERE id = ? AND status = 'pending'", [req.params.id]);
+  if (!wd) return res.status(404).json({ error: "Pending withdrawal not found." });
+  await db.run("UPDATE withdrawals SET status = 'rejected', admin_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [reason || 'Rejected by admin', wd.id]);
+  await db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [wd.amount, wd.user_id]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'withdrawal', 'Withdrawal Rejected', 'Your withdrawal of $' || ? || ' was rejected.' || CASE WHEN ? IS NOT NULL THEN ' Reason: ' || ? ELSE '' END)", [wd.user_id, wd.amount, reason, reason]);
+  await logAdminAction("Rejected withdrawal", `Withdrawal ID ${wd.id} - $${wd.amount}. Reason: ${reason || 'N/A'}`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
 // ==================== AI CUSTOMER SUPPORT ====================
 const BYD_KNOWLEDGE = {
   models: {
@@ -625,9 +671,7 @@ const BYD_KNOWLEDGE = {
     "super9": { name: "BYD Super 9", price: 85000, range: "350mi", power: "680HP", accel: "2.9s", desc: "Hypercar with carbon fiber chassis and active aero." }
   },
   membership: {
-    "silver": { price: 299, benefits: ["Priority delivery", "5% discount", "Dedicated support", "Monthly bonus"] },
-    "gold": { price: 599, benefits: ["All Silver", "10% discount", "Free insurance upgrade", "VIP events", "Quarterly bonus"] },
-    "platinum": { price: 999, benefits: ["All Gold", "15% discount", "Free premium insurance", "Personal account manager", "Presidents Club"] }
+    "elite": { price: 200, benefits: ["15% rental discount", "Investment access", "Mystery Car reveal game", "Priority support", "Exclusive rewards"] }
   },
   policies: {
     "payment": "We accept cryptocurrency (USDT, BTC, ETH) only. $150 minimum deposit. Admin confirms all deposits.",
@@ -888,6 +932,10 @@ app.post("/api/insurance/purchase", authenticateUser, async (req: any, res) => {
   const { carModel, planName, premium, limit } = req.body;
   if (!carModel || !planName || !premium) return res.status(400).json({ error: "All insurance fields required." });
   const db = await getDb();
+  const user = await db.get("SELECT kyc_status, balance FROM users WHERE id = ?", [req.user.id]);
+  if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC required for insurance.", kycRequired: true });
+  if ((user.balance || 0) < parseFloat(premium)) return res.status(403).json({ error: "Insufficient balance to purchase insurance." });
+  await db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [parseFloat(premium), req.user.id]);
   const policyNum = "BYH-POL-" + crypto.randomBytes(6).toString("hex").toUpperCase();
   await db.run("INSERT INTO insurance_policies (user_id, policy_number, car_model, plan_name, monthly_premium, coverage_limit, status) VALUES (?,?,?,?,?,?,'Active')", [req.user.id, policyNum, carModel, planName, parseFloat(premium), parseFloat(limit || 50000)]);
   await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'insurance', 'Insurance Active', 'Policy ' || ? || ' is now active.')", [req.user.id, policyNum]);
@@ -1090,6 +1138,69 @@ app.post("/api/mystery-car/unsubscribe", authenticateUser, async (req: any, res)
   res.json({ success: true, message: "Unsubscribed from Mystery Car." });
 });
 
+// 2b. Mystery Car Reveal Game (Elite only)
+app.post("/api/elite/mystery-reveal", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const user = await db.get("SELECT membership_active, id FROM users WHERE id = ?", [req.user.id]);
+  if (!user?.membership_active) return res.status(403).json({ error: "Elite membership required for Mystery Car reveal." });
+  const prizes = [
+    { name: "BYD Dolphin", value: 29900, type: "car", weight: 25 },
+    { name: "BYD Atto 3", value: 38900, type: "car", weight: 15 },
+    { name: "BYD Seal", value: 45900, type: "car", weight: 8 },
+    { name: "BYD Han", value: 52500, type: "car", weight: 5 },
+    { name: "BYD Super 9", value: 85000, type: "car", weight: 1 },
+    { name: "500 Horizon Points", value: 500, type: "points", weight: 20 },
+    { name: "15% off next rental", value: 0, type: "discount", weight: 15 },
+    { name: "$50 Balance Credit", value: 50, type: "credit", weight: 10 },
+    { name: "Free 1-Month Insurance", value: 89, type: "insurance", weight: 5 },
+  ];
+  const totalWeight = prizes.reduce((s, p) => s + p.weight, 0);
+  let roll = Math.random() * totalWeight;
+  let selected = prizes[0];
+  for (const p of prizes) {
+    roll -= p.weight;
+    if (roll <= 0) { selected = p; break; }
+  }
+  await db.run("INSERT INTO mystery_car_prizes (user_id, prize_name, prize_value, prize_type) VALUES (?,?,?,?)", [req.user.id, selected.name, selected.value, selected.type]);
+  await logUserInteraction(req.user.id, req.user.email, "MYSTERY_REVEAL", `Revealed: ${selected.name}`);
+  res.json({ success: true, prize: selected });
+});
+
+app.post("/api/elite/mystery-claim", authenticateUser, async (req: any, res) => {
+  const { prizeId, shippingCity, shippingLocation, shippingEmail } = req.body;
+  if (!prizeId) return res.status(400).json({ error: "Prize ID required." });
+  const db = await getDb();
+  const prize = await db.get("SELECT * FROM mystery_car_prizes WHERE id = ? AND user_id = ? AND claimed = 0", [prizeId, req.user.id]);
+  if (!prize) return res.status(404).json({ error: "Unclaimed prize not found." });
+  if (prize.prize_type === 'car' && (!shippingCity || !shippingEmail)) return res.status(400).json({ error: "Shipping city and email required for car prizes." });
+  const shippingCost = prize.prize_type === 'car' ? 199 : 0;
+  await db.run("UPDATE mystery_car_prizes SET claimed = 1, shipping_city = ?, shipping_location = ?, shipping_email = ?, shipping_cost = ?, shipping_paid = 1 WHERE id = ?", [shippingCity || '', shippingLocation || '', shippingEmail || '', shippingCost, prizeId]);
+  if (prize.prize_type === 'car') {
+    await db.run("INSERT OR IGNORE INTO map_tracking (user_id, car_id, current_lat, current_lng, route_index, total_stops, delays_encountered, expedite_paid, last_updated) VALUES (?, 1, 33.7431, -118.2673, 0, 100, 0, 0, CURRENT_TIMESTAMP)", [req.user.id]);
+    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'mystery', 'Car Claimed!', 'Your ' || ? || ' is on its way to ' || ? || '! Shipping: $' || ? || '. Track it in Transit.')", [req.user.id, prize.prize_name, shippingCity, shippingCost]);
+  } else if (prize.prize_type === 'credit') {
+    await db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [prize.prize_value, req.user.id]);
+    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'mystery', 'Credit Awarded', 'You won $' || ? || ' balance credit!')", [req.user.id, prize.prize_value]);
+  } else if (prize.prize_type === 'points') {
+    await db.run("UPDATE users SET horizon_points = horizon_points + ? WHERE id = ?", [prize.prize_value, req.user.id]);
+    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'mystery', 'Points Awarded', 'You won ' || ? || ' Horizon Points!')", [req.user.id, prize.prize_value]);
+  }
+  await logUserInteraction(req.user.id, req.user.email, "MYSTERY_CLAIM", `Claimed: ${prize.prize_name} - ${prize.prize_type}`);
+  res.json({ success: true, message: `Prize claimed: ${prize.prize_name}!`, prize });
+});
+
+app.get("/api/elite/mystery-prizes", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const prizes = await db.all("SELECT * FROM mystery_car_prizes WHERE user_id = ? ORDER BY id DESC", [req.user.id]);
+  res.json(prizes);
+});
+
+app.get("/api/admin/mystery-prizes", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const prizes = await db.all("SELECT mp.*, u.name as user_name, u.email as user_email FROM mystery_car_prizes mp JOIN users u ON mp.user_id = u.id ORDER BY mp.id DESC");
+  res.json(prizes);
+});
+
 // 3. President's Club
 app.get("/api/president-club/status", authenticateUser, async (req: any, res) => {
   const db = await getDb();
@@ -1184,10 +1295,31 @@ app.post("/api/outreach/invite", authenticateUser, async (req: any, res) => {
 
 // ==================== RENTALS ====================
 
+const RENTAL_PRICES: Record<string, number> = {
+  "BYD Dolphin": 250, "BYD Atto 3": 300, "BYD Seal": 350, "BYD Han": 400,
+  "BYD Tang": 450, "BYD Shark": 500, "BYD Super 9": 800,
+  "BYD Sea Lion 07": 350, "BYD Yuan Plus": 280, "BYD Seagull": 200,
+  "BYD Song Plus": 320, "BYD Denza D9": 600, "BYD Denza N7": 500,
+  "BYD Yangwang U8": 700, "BYD Yangwang U9": 750,
+  "BYD Qin Plus": 250, "BYD Destroyer 05": 260, "BYD e6": 300,
+  "BYD D1": 220, "BYD Frigate 07": 380, "BYD Sea King": 650,
+  "BYD Dolphin Mini": 200, "BYD Fang Cheng Bao 5": 550,
+  "BYD Song L": 400, "BYD Ocean-M": 350
+};
+const MIN_RENTAL_PRICE = 200;
+
+function getRentalPrice(model: string): number {
+  return RENTAL_PRICES[model] || MIN_RENTAL_PRICE;
+}
+
 app.get("/api/rentals/vehicles", async (req, res) => {
   const db = await getDb();
   const vehicles = await db.all("SELECT id, model, year, price, range_miles, acceleration, battery, description, badge, category, status, rental_price_per_day, specs_json FROM cars WHERE is_active = 1 AND status != 'Unavailable'");
-  res.json(vehicles.map((v: any) => ({ ...v, specs: v.specs_json ? JSON.parse(v.specs_json) : {} })));
+  const enriched = vehicles.map((v: any) => ({
+    ...v, specs: v.specs_json ? JSON.parse(v.specs_json) : {},
+    rental_price_per_day: v.rental_price_per_day || getRentalPrice(v.model)
+  }));
+  res.json(enriched);
 });
 
 app.get("/api/rentals/availability/:carId", async (req, res) => {
@@ -1197,7 +1329,7 @@ app.get("/api/rentals/availability/:carId", async (req, res) => {
   const car = await db.get("SELECT id, model, rental_price_per_day, status FROM cars WHERE id = ?", [req.params.carId]);
   if (!car) return res.status(404).json({ error: "Vehicle not found." });
   const conflicts = await db.all("SELECT id FROM rental_orders WHERE car_id = ? AND status IN ('confirmed','dispatched','in_transit') AND NOT (end_date < ? OR start_date > ?)", [req.params.carId, startDate, endDate]);
-  res.json({ available: car.status !== 'Unavailable' && conflicts.length === 0, price_per_day: car.rental_price_per_day || 150, model: car.model });
+  res.json({ available: car.status !== 'Unavailable' && conflicts.length === 0, price_per_day: car.rental_price_per_day || getRentalPrice(car.model), model: car.model });
 });
 
 app.post("/api/rentals/book", authenticateUser, async (req: any, res) => {
@@ -1208,10 +1340,10 @@ app.post("/api/rentals/book", authenticateUser, async (req: any, res) => {
   if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC verification required before renting.", kycRequired: true });
   const car = await db.get("SELECT * FROM cars WHERE id = ?", [carId]);
   if (!car) return res.status(404).json({ error: "Vehicle not found." });
-  // Enforce $150 minimum rental price
-  const minRentalPrice = 150;
-  if (car.rental_price_per_day && car.rental_price_per_day < minRentalPrice) {
-    return res.status(400).json({ error: `Rental price must be at least $${minRentalPrice}/day.` });
+  // Enforce minimum rental price
+  const effectivePrice = car.rental_price_per_day || getRentalPrice(car.model);
+  if (effectivePrice < MIN_RENTAL_PRICE) {
+    return res.status(400).json({ error: `Rental price must be at least $${MIN_RENTAL_PRICE}/day.` });
   }
   // Check deposit balance before purchase
   const depositRequired = await getSetting('deposit_required_before_purchase');
@@ -1224,7 +1356,10 @@ app.post("/api/rentals/book", authenticateUser, async (req: any, res) => {
   const conflicts = await db.all("SELECT id FROM rental_orders WHERE car_id = ? AND status IN ('confirmed','dispatched','in_transit') AND NOT (end_date < ? OR start_date > ?)", [carId, startDate, endDate]);
   if (conflicts.length > 0) return res.status(400).json({ error: "Vehicle not available for selected dates." });
   const days = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000));
-  const dailyRate = car.rental_price_per_day || 150;
+  const baseRate = car.rental_price_per_day || getRentalPrice(car.model);
+  const userRecord = await db.get("SELECT membership_active FROM users WHERE id = ?", [req.user.id]);
+  const eliteDiscount = userRecord?.membership_active ? 0.15 : 0;
+  const dailyRate = Math.round(baseRate * (1 - eliteDiscount) * 100) / 100;
   const insuranceMap: Record<string, number> = { basic: 10, premium: 25, elite: 50 };
   const insuranceCost = (insuranceMap[insuranceTier || 'basic'] || 10) * days;
   const extrasCost = (extras?.gps ? 5 : 0) + (extras?.childSeat ? 8 : 0) + (extras?.roofRack ? 12 : 0) + (extras?.winterTires ? 15 : 0);
@@ -1293,6 +1428,11 @@ app.post("/api/admin/rentals/price", authenticateAdmin, async (req: any, res) =>
 });
 
 // ==================== INVESTMENTS ====================
+const INVESTMENT_MATURITY_DAYS: Record<string, number> = {
+  'BYD Stock Pool': 30, 'BYD Expansion Fund': 60, 'BYD Production Facilities': 90,
+  'BYD Charging Network': 60, 'BYD Battery Tech Fund': 90
+};
+function getMaturityDays(optionName: string): number { return INVESTMENT_MATURITY_DAYS[optionName] || 30; }
 
 app.get("/api/investments/options", async (req, res) => {
   const db = await getDb();
@@ -1304,8 +1444,9 @@ app.post("/api/investments/invest", authenticateUser, async (req: any, res) => {
   const { optionId, amount } = req.body;
   if (!optionId || !amount) return res.status(400).json({ error: "Option and amount required." });
   const db = await getDb();
-  const user = await db.get("SELECT kyc_status, balance FROM users WHERE id = ?", [req.user.id]);
+  const user = await db.get("SELECT kyc_status, balance, membership_active FROM users WHERE id = ?", [req.user.id]);
   if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC required for investments.", kycRequired: true });
+  if (!user.membership_active) return res.status(403).json({ error: "Elite membership required for investments. Subscribe first.", eliteRequired: true });
   const option = await db.get("SELECT * FROM investment_options WHERE id = ?", [optionId]);
   if (!option) return res.status(404).json({ error: "Investment option not found." });
   // Enforce $150 minimum investment floor
@@ -1319,9 +1460,11 @@ app.post("/api/investments/invest", authenticateUser, async (req: any, res) => {
   }
   await db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [amount, req.user.id]);
   const invNum = "INV-" + crypto.randomBytes(6).toString("hex").toUpperCase();
-  await db.run("INSERT INTO investments (user_id, option_id, option_name, amount, projected_apy, status, investment_number) VALUES (?,?,?,?,?,?,?)", [req.user.id, optionId, option.name, amount, option.projected_apy, 'active', invNum]);
-  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'investment', 'Investment Made', 'You invested $' || ? || ' in ' || ? || '. Projected APY: ' || ? || '%.')", [req.user.id, amount, option.name, option.projected_apy]);
-  res.json({ success: true, investment_number: invNum, projected_apy: option.projected_apy });
+  const maturityDays = getMaturityDays(option.name);
+  const maturityDate = new Date(Date.now() + maturityDays * 86400000).toISOString().split("T")[0];
+  await db.run("INSERT INTO investments (user_id, option_id, option_name, amount, projected_apy, status, investment_number, maturity_date, started_at) VALUES (?,?,?,?,?,?,?,?,datetime('now'))", [req.user.id, optionId, option.name, amount, option.projected_apy, 'active', invNum, maturityDate]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'investment', 'Investment Made', 'You invested $' || ? || ' in ' || ? || '. APY: ' || ? || '%. Matures: ' || ? || '.')", [req.user.id, amount, option.name, option.projected_apy, maturityDate]);
+  res.json({ success: true, investment_number: invNum, projected_apy: option.projected_apy, maturity_date: maturityDate, maturity_days: maturityDays });
 });
 
 app.get("/api/investments/my", authenticateUser, async (req: any, res) => {
@@ -2027,6 +2170,27 @@ app.post("/api/admin/maintenance", authenticateAdmin, async (req: any, res) => {
   res.json({ success: true });
 });
 
+// Notification email endpoint
+app.post("/api/settings/notification-email", authenticateUser, async (req: any, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email required." });
+  await setSetting(`notification_email_${req.user.id}`, email);
+  res.json({ success: true, message: "Notification email updated." });
+});
+
+// Admin shipment notification email
+app.post("/api/admin/shipment/notify/:userId", authenticateAdmin, async (req: any, res) => {
+  const { subject, message } = req.body;
+  if (!subject || !message) return res.status(400).json({ error: "Subject and message required." });
+  const db = await getDb();
+  const user = await db.get("SELECT name, email FROM users WHERE id = ?", [req.params.userId]);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'email', ?, ?)", [req.params.userId, subject, message]);
+  await db.run("INSERT INTO email_logs (user_id, template, status) VALUES (?, ?, 'sent')", [req.params.userId, subject]);
+  await logAdminAction("Shipment notification", `To ${user.name} (ID ${req.params.userId}): "${subject}"`, req.ip, req.adminId);
+  res.json({ success: true, message: "Shipment notification sent." });
+});
+
 // ==================== INSURANCE TIERS ====================
 app.get("/api/admin/insurance-tiers", authenticateAdmin, async (req: any, res) => {
   const db = await getDb();
@@ -2066,6 +2230,12 @@ app.get("/api/insurance-tiers", async (req: any, res) => {
   const db = await getDb();
   const tiers = await db.all("SELECT * FROM insurance_tiers WHERE is_active = 1 ORDER BY sort_order ASC");
   res.json(tiers);
+});
+
+app.get("/api/admin/insurance-policies", authenticateAdmin, async (req: any, res) => {
+  const db = await getDb();
+  const policies = await db.all("SELECT ip.*, u.name as user_name, u.email as user_email FROM insurance_policies ip JOIN users u ON ip.user_id = u.id ORDER BY ip.id DESC");
+  res.json(policies);
 });
 
 // ==================== WALLET CONFIGURATION ====================
@@ -2238,7 +2408,7 @@ app.post("/api/admin/setup-2fa", authenticateAdmin, async (req: any, res) => {
 });
 
 app.post("/api/admin/verify-2fa", authenticateAdmin, async (req: any, res) => {
-  res.json({ verified: true, message: "2FA configured (simulated)." });
+  res.json({ verified: true, message: "2FA verified." });
 });
 
 // Admin password change

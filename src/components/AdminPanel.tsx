@@ -6,7 +6,8 @@ import {
   MessageSquare, Sparkles, Terminal, KeyRound, ShieldAlert, Lock, UserPlus,
   Coins, Sliders, AlertTriangle, Phone, Megaphone, Filter, ChevronDown,
   ChevronUp, Clock, Globe, Camera, Image, Star, Flag, ToggleLeft,
-  ToggleRight, QrCode, HelpCircle, Zap, Leaf, Truck, TrendingUp
+  ToggleRight, QrCode, HelpCircle, Zap, Leaf, Truck, TrendingUp,
+  ArrowUpRight, Crown, Puzzle
 } from "lucide-react";
 
 interface AdminPanelProps {
@@ -15,16 +16,19 @@ interface AdminPanelProps {
   initialIsAdmin?: boolean;
 }
 
-type TabId = "dashboard" | "users" | "payments" | "vehicles" | "tracking" | "rentals" | "investments" | "promos" | "referrals" | "content" | "gamification" | "settings" | "insurance" | "wallets" | "master";
+type TabId = "dashboard" | "users" | "payments" | "vehicles" | "tracking" | "rentals" | "investments" | "promos" | "referrals" | "content" | "gamification" | "settings" | "insurance" | "wallets" | "master" | "withdrawals" | "elite" | "mystery";
 
 const TABS: { id: TabId; label: string; icon: React.ComponentType<any> }[] = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "users", label: "Users", icon: Users },
   { id: "payments", label: "Payments", icon: CreditCard },
+  { id: "withdrawals", label: "Withdrawals", icon: ArrowUpRight },
   { id: "vehicles", label: "Vehicles", icon: Car },
   { id: "tracking", label: "Tracking", icon: MapPin },
   { id: "rentals", label: "Rentals", icon: Truck },
   { id: "investments", label: "Investments", icon: TrendingUp },
+  { id: "elite", label: "Elite", icon: Crown },
+  { id: "mystery", label: "Mystery Car", icon: Puzzle },
   { id: "promos", label: "Promos", icon: Gift },
   { id: "referrals", label: "Referrals", icon: Users },
   { id: "content", label: "Content", icon: BookOpen },
@@ -128,6 +132,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
 
   // Insurance Tiers
   const [insuranceTiers, setInsuranceTiers] = useState<any[]>([]);
+  const [insurancePolicies, setInsurancePolicies] = useState<any[]>([]);
   const [insuranceForm, setInsuranceForm] = useState({ name: "", daily_rate: "", coverage_limit: "", deductible: "", description: "" });
   const [showInsuranceForm, setShowInsuranceForm] = useState(false);
   const [editingInsurance, setEditingInsurance] = useState<any>(null);
@@ -146,6 +151,18 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
   const [masterStatus, setMasterStatus] = useState<any>({ status: "disconnected" });
   const [masterWebhook, setMasterWebhook] = useState("");
   const [masterMsg, setMasterMsg] = useState("");
+
+  // Withdrawals
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [wdMsg, setWdMsg] = useState("");
+
+  // Elite members
+  const [eliteRequests, setEliteRequests] = useState<any[]>([]);
+  const [eliteMsg, setEliteMsg] = useState("");
+
+  // Mystery car prizes
+  const [mysteryPrizes, setMysteryPrizes] = useState<any[]>([]);
+  const [mysteryMsg, setMysteryMsg] = useState("");
 
   // Revenue & Fraud
   const [revenue, setRevenue] = useState<any>({});
@@ -265,6 +282,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
 
   const loadInsuranceTiers = async () => {
     try { const res = await fetch("/api/admin/insurance-tiers", { headers: headersNoCT() }); setInsuranceTiers(await res.json()); } catch {}
+    try { const res = await fetch("/api/admin/insurance-policies", { headers: headersNoCT() }); if (res.ok) setInsurancePolicies(await res.json()); } catch {}
   };
   const loadWallets = async () => {
     try { const res = await fetch("/api/admin/wallets", { headers: headersNoCT() }); const data = await res.json(); setWallets(data); setGlobalWalletForm(data.global_wallet || ""); } catch {}
@@ -283,16 +301,29 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
     try { const res = await fetch("/api/admin/fraud-alerts", { headers: headersNoCT() }); if (res.ok) { const data = await res.json(); setFraudAlerts(data.alerts || []); } } catch {}
   };
 
+  const loadWithdrawals = async () => {
+    try { const res = await fetch("/api/admin/withdrawals", { headers: headersNoCT() }); if (res.ok) setWithdrawals(await res.json()); } catch {}
+  };
+  const loadEliteRequests = async () => {
+    try { const res = await fetch("/api/admin/elite-requests", { headers: headersNoCT() }); if (res.ok) setEliteRequests(await res.json()); } catch {}
+  };
+  const loadMysteryPrizes = async () => {
+    try { const res = await fetch("/api/admin/mystery-prizes", { headers: headersNoCT() }); if (res.ok) setMysteryPrizes(await res.json()); } catch {}
+  };
+
   useEffect(() => {
     if (!isAdmin || !adminToken) return;
     switch (activeTab) {
       case "dashboard": loadDashboard(); break;
       case "users": loadUsers(); break;
       case "payments": loadPayments(); break;
+      case "withdrawals": loadWithdrawals(); break;
       case "vehicles": loadCars(); break;
       case "tracking": loadTracking(); break;
       case "rentals": loadRentals(); break;
       case "investments": loadInvestments(); break;
+      case "elite": loadEliteRequests(); break;
+      case "mystery": loadMysteryPrizes(); break;
       case "promos": loadPromos(); break;
       case "referrals": loadReferrals(); break;
       case "content": loadContent(); break;
@@ -1259,6 +1290,27 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                   </table>
                 </div>
               </div>
+
+              {/* Shipment Notification */}
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-3">
+                <h3 className="text-sm font-bold flex items-center gap-2"><Mail className="w-4 h-4 text-[#00E5FF]" /> Send Shipment Email</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input type="number" placeholder="User ID" id="shipUserId" className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                  <input type="text" placeholder="Subject" id="shipSubject" className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                  <input type="text" placeholder="Message" id="shipMessage" className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                </div>
+                <button onClick={async () => {
+                  const userId = (document.getElementById('shipUserId') as HTMLInputElement)?.value;
+                  const subject = (document.getElementById('shipSubject') as HTMLInputElement)?.value;
+                  const message = (document.getElementById('shipMessage') as HTMLInputElement)?.value;
+                  if (!userId || !subject || !message) { alert("All fields required."); return; }
+                  const res = await fetch(`/api/admin/shipment/notify/${userId}`, { method: "POST", headers: headers(), body: JSON.stringify({ subject, message }) });
+                  const data = await res.json();
+                  if (data.success) { showMsg(setTrackingMsg, "Shipment email sent."); } else { alert(data.error || "Failed."); }
+                }} className="px-5 py-2 bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20 font-bold uppercase text-[10px] tracking-wider rounded-xl hover:bg-[#00E5FF]/20 transition cursor-pointer w-fit flex items-center gap-2">
+                  <Send className="w-3.5 h-3.5" /> Send Email
+                </button>
+              </div>
             </div>
           )}
 
@@ -1706,6 +1758,45 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                   </div>
                 ))}
               </div>
+
+              {/* User Insurance Policies */}
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold flex items-center gap-2"><Shield className="w-4 h-4 text-[#00E5FF]" /> User Insurance Policies</h3>
+                {insurancePolicies.length === 0 ? (
+                  <p className="text-xs text-white/40">No insurance policies found.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-white/40 border-b border-white/5">
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Policy #</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">User</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Car</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Plan</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Premium</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Coverage</th>
+                          <th className="text-left py-2 font-mono uppercase tracking-wider">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {insurancePolicies.map((p: any) => (
+                          <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                            <td className="py-2 pr-2 text-white/60 font-mono text-[10px]">{p.policy_number}</td>
+                            <td className="py-2 pr-2">{p.user_name}<br /><span className="text-white/30">{p.user_email}</span></td>
+                            <td className="py-2 pr-2">{p.car_model}</td>
+                            <td className="py-2 pr-2">{p.plan_name}</td>
+                            <td className="py-2 pr-2 font-mono">${p.monthly_premium}/mo</td>
+                            <td className="py-2 pr-2 font-mono text-[10px]">${(p.coverage_limit || 0).toLocaleString()}</td>
+                            <td className="py-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-mono ${p.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>{p.status}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1819,6 +1910,170 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
           )}
 
           {/* ═══ SETTINGS ═══ */}
+          {/* ═══ WITHDRAWALS ═══ */}
+          {activeTab === "withdrawals" && (
+            <div className="space-y-4">
+              {wdMsg && <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl">{wdMsg}</p>}
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold flex items-center gap-2"><ArrowUpRight className="w-4 h-4 text-[#00E5FF]" /> Withdrawal Requests</h3>
+                {withdrawals.length === 0 ? (
+                  <p className="text-xs text-white/40">No withdrawal requests.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-white/40 border-b border-white/5">
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">ID</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">User</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Amount</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Wallet</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Status</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Date</th>
+                          <th className="text-left py-2 font-mono uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {withdrawals.map((wd: any) => (
+                          <tr key={wd.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                            <td className="py-2 pr-2 text-white/60 font-mono">#{wd.id}</td>
+                            <td className="py-2 pr-2">{wd.user_name}<br /><span className="text-white/30">{wd.user_email}</span></td>
+                            <td className="py-2 pr-2 text-emerald-400 font-mono">${wd.amount}</td>
+                            <td className="py-2 pr-2 font-mono text-[10px] text-white/60 max-w-[120px] truncate">{wd.wallet_address}</td>
+                            <td className="py-2 pr-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-mono ${
+                                wd.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400' :
+                                wd.status === 'rejected' ? 'bg-red-500/10 text-red-400' :
+                                'bg-amber-500/10 text-amber-400'
+                              }`}>{wd.status}</span>
+                            </td>
+                            <td className="py-2 pr-2 text-white/40 text-[10px]">{wd.created_at?.split('T')[0]}</td>
+                            <td className="py-2">
+                              {wd.status === 'pending' && (
+                                <div className="flex gap-1">
+                                  <button onClick={async () => { await fetch(`/api/admin/withdrawals/${wd.id}/confirm`, { method: "POST", headers: headers() }); showMsg(setWdMsg, "Withdrawal confirmed."); loadWithdrawals(); }}
+                                    className="p-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition cursor-pointer" title="Confirm">
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={async () => { const reason = prompt("Rejection reason:"); await fetch(`/api/admin/withdrawals/${wd.id}/reject`, { method: "POST", headers: headers(), body: JSON.stringify({ reason: reason || '' }) }); showMsg(setWdMsg, "Withdrawal rejected."); loadWithdrawals(); }}
+                                    className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition cursor-pointer" title="Reject">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ ELITE MEMBERS ═══ */}
+          {activeTab === "elite" && (
+            <div className="space-y-4">
+              {eliteMsg && <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl">{eliteMsg}</p>}
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold flex items-center gap-2"><Crown className="w-4 h-4 text-[#00E5FF]" /> Elite Subscriptions</h3>
+                {eliteRequests.length === 0 ? (
+                  <p className="text-xs text-white/40">No elite subscription requests.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-white/40 border-b border-white/5">
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">ID</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">User</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Amount</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Status</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Date</th>
+                          <th className="text-left py-2 font-mono uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {eliteRequests.map((er: any) => (
+                          <tr key={er.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                            <td className="py-2 pr-2 text-white/60 font-mono">#{er.id}</td>
+                            <td className="py-2 pr-2">{er.user_name}<br /><span className="text-white/30">{er.user_email}</span></td>
+                            <td className="py-2 pr-2 text-purple-400 font-mono">${er.amount}</td>
+                            <td className="py-2 pr-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-mono ${
+                                er.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                              }`}>{er.status}</span>
+                            </td>
+                            <td className="py-2 pr-2 text-white/40 text-[10px]">{er.created_at?.split('T')[0]}</td>
+                            <td className="py-2">
+                              {er.status === 'pending' && (
+                                <button onClick={async () => { await fetch(`/api/admin/elite/${er.id}/confirm`, { method: "POST", headers: headers() }); showMsg(setEliteMsg, "Elite subscription confirmed."); loadEliteRequests(); }}
+                                  className="p-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition cursor-pointer" title="Confirm">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ MYSTERY CAR PRIZES ═══ */}
+          {activeTab === "mystery" && (
+            <div className="space-y-4">
+              {mysteryMsg && <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl">{mysteryMsg}</p>}
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold flex items-center gap-2"><Puzzle className="w-4 h-4 text-[#00E5FF]" /> Mystery Car Prizes</h3>
+                {mysteryPrizes.length === 0 ? (
+                  <p className="text-xs text-white/40">No mystery car prizes claimed yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-white/40 border-b border-white/5">
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">ID</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">User</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Prize</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Type</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Value</th>
+                          <th className="text-left py-2 pr-2 font-mono uppercase tracking-wider">Claimed</th>
+                          <th className="text-left py-2 font-mono uppercase tracking-wider">Shipping</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mysteryPrizes.map((mp: any) => (
+                          <tr key={mp.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                            <td className="py-2 pr-2 text-white/60 font-mono">#{mp.id}</td>
+                            <td className="py-2 pr-2">{mp.user_name}<br /><span className="text-white/30">{mp.user_email}</span></td>
+                            <td className="py-2 pr-2 text-cyan-400">{mp.prize_name}</td>
+                            <td className="py-2 pr-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-mono ${
+                                mp.prize_type === 'car' ? 'bg-emerald-500/10 text-emerald-400' :
+                                mp.prize_type === 'credit' ? 'bg-amber-500/10 text-amber-400' :
+                                'bg-blue-500/10 text-blue-400'
+                              }`}>{mp.prize_type}</span>
+                            </td>
+                            <td className="py-2 pr-2 font-mono">${mp.prize_value}</td>
+                            <td className="py-2 pr-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] ${mp.claimed ? 'text-emerald-400 bg-emerald-500/10' : 'text-white/30 bg-white/5'}`}>
+                                {mp.claimed ? 'Yes' : 'No'}
+                              </span>
+                            </td>
+                            <td className="py-2 text-[10px] text-white/60">{mp.shipping_city || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === "settings" && (
             <div className="space-y-4">
               {settingsMsg && <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl">{settingsMsg}</p>}
@@ -1864,41 +2119,42 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                       className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
                   </div>
                 </div>
-                <div className="border-t border-white/5 pt-4">
-                  <h4 className="text-[10px] text-white/40 font-mono uppercase tracking-wider mb-3">Brand Customization</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-white/40 font-mono">Primary Color</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={settings.primary_color || "#0a0e1a"} onChange={e => setSettings({ ...settings, primary_color: e.target.value })}
-                          className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer bg-transparent" />
-                        <input type="text" value={settings.primary_color || "#0a0e1a"} onChange={e => setSettings({ ...settings, primary_color: e.target.value })}
-                          className="flex-1 bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs font-mono focus:outline-none focus:border-[#00E5FF]/50" />
-                      </div>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold flex items-center gap-2"><Sliders className="w-4 h-4 text-[#00E5FF]" /> Brand Customization</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-white/40 font-mono">Primary Color</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={settings.primary_color || "#0a0e1a"} onChange={e => setSettings({ ...settings, primary_color: e.target.value })}
+                        className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer bg-transparent" />
+                      <input type="text" value={settings.primary_color || "#0a0e1a"} onChange={e => setSettings({ ...settings, primary_color: e.target.value })}
+                        className="flex-1 bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs font-mono focus:outline-none focus:border-[#00E5FF]/50" />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-white/40 font-mono">Secondary (Cyan)</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={settings.secondary_color || "#00e5ff"} onChange={e => setSettings({ ...settings, secondary_color: e.target.value })}
-                          className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer bg-transparent" />
-                        <input type="text" value={settings.secondary_color || "#00e5ff"} onChange={e => setSettings({ ...settings, secondary_color: e.target.value })}
-                          className="flex-1 bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs font-mono focus:outline-none focus:border-[#00E5FF]/50" />
-                      </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-white/40 font-mono">Secondary (Cyan)</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={settings.secondary_color || "#00e5ff"} onChange={e => setSettings({ ...settings, secondary_color: e.target.value })}
+                        className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer bg-transparent" />
+                      <input type="text" value={settings.secondary_color || "#00e5ff"} onChange={e => setSettings({ ...settings, secondary_color: e.target.value })}
+                        className="flex-1 bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs font-mono focus:outline-none focus:border-[#00E5FF]/50" />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-white/40 font-mono">Accent (Emerald)</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={settings.accent_color || "#10b981"} onChange={e => setSettings({ ...settings, accent_color: e.target.value })}
-                          className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer bg-transparent" />
-                        <input type="text" value={settings.accent_color || "#10b981"} onChange={e => setSettings({ ...settings, accent_color: e.target.value })}
-                          className="flex-1 bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs font-mono focus:outline-none focus:border-[#00E5FF]/50" />
-                      </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-white/40 font-mono">Accent (Emerald)</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={settings.accent_color || "#10b981"} onChange={e => setSettings({ ...settings, accent_color: e.target.value })}
+                        className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer bg-transparent" />
+                      <input type="text" value={settings.accent_color || "#10b981"} onChange={e => setSettings({ ...settings, accent_color: e.target.value })}
+                        className="flex-1 bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs font-mono focus:outline-none focus:border-[#00E5FF]/50" />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-white/40 font-mono uppercase tracking-wider">Logo URL</label>
-                      <input type="text" value={settings.logo_url || ""} placeholder="https://..." onChange={e => setSettings({ ...settings, logo_url: e.target.value })}
-                        className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
-                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-white/40 font-mono uppercase tracking-wider">Logo URL</label>
+                    <input type="text" value={settings.logo_url || ""} placeholder="https://..." onChange={e => setSettings({ ...settings, logo_url: e.target.value })}
+                      className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
                   </div>
                 </div>
                 <div className="border-t border-white/5 pt-4">
