@@ -1311,6 +1311,26 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                   <Send className="w-3.5 h-3.5" /> Send Email
                 </button>
               </div>
+
+              {/* Urgent Tracking Update */}
+              <div className="bg-white/5 backdrop-blur-xl border border-red-500/20 rounded-2xl p-5 space-y-3">
+                <h3 className="text-sm font-bold flex items-center gap-2 text-red-300"><AlertTriangle className="w-4 h-4 text-red-400" /> Send Urgent Tracking Update</h3>
+                <p className="text-[10px] text-white/40">This sends a prominent alert to the user's tracking page and their notification panel.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input type="number" placeholder="User ID" id="urgentUserId" className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                  <input type="text" placeholder="Urgent message (e.g., Customs delay at checkpoint)" id="urgentMessage" className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                </div>
+                <button onClick={async () => {
+                  const userId = (document.getElementById('urgentUserId') as HTMLInputElement)?.value;
+                  const message = (document.getElementById('urgentMessage') as HTMLInputElement)?.value;
+                  if (!userId || !message) { alert("Both fields required."); return; }
+                  const res = await fetch("/api/admin/tracking/urgent", { method: "POST", headers: headers(), body: JSON.stringify({ user_id: parseInt(userId), message }) });
+                  const data = await res.json();
+                  if (data.success) { showMsg(setTrackingMsg, "Urgent update sent."); (document.getElementById('urgentMessage') as HTMLInputElement).value = ""; } else { alert(data.error || "Failed."); }
+                }} className="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 font-bold uppercase text-[10px] tracking-wider rounded-xl hover:bg-red-500/20 transition cursor-pointer w-fit flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Send Urgent Update
+                </button>
+              </div>
             </div>
           )}
 

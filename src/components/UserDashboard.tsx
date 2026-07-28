@@ -566,105 +566,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
 
           {/* ==================== TRACKING & TRANSIT ==================== */}
           {activeTab === "tracking" && (
-            <div className="space-y-6">
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-bold">Tracking & Transit</h2>
-                    <p className="text-xs text-slate-400">Live GPS tracking, shipping locations, and delivery timeline</p>
-                  </div>
-                  <Map className="w-6 h-6 text-cyan-400" />
-                </div>
-
-                {data.tracking ? (
-                  <div className="space-y-4">
-                    {/* Progress Stats */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="bg-white/5 rounded-xl p-3">
-                        <div className="text-[10px] text-slate-500 font-mono">Route Progress</div>
-                        <div className="text-lg font-bold text-cyan-400">{data.tracking.route_index}%</div>
-                      </div>
-                      <div className="bg-white/5 rounded-xl p-3">
-                        <div className="text-[10px] text-slate-500 font-mono">Delays</div>
-                        <div className="text-lg font-bold text-amber-400">{data.tracking.delays_encountered}</div>
-                      </div>
-                      <div className="bg-white/5 rounded-xl p-3">
-                        <div className="text-[10px] text-slate-500 font-mono">Destination</div>
-                        <div className="text-lg font-bold truncate">{data.user.city || "New York"}</div>
-                      </div>
-                      <div className="bg-white/5 rounded-xl p-3">
-                        <div className="text-[10px] text-slate-500 font-mono">ETA</div>
-                        <div className="text-lg font-bold text-emerald-400">~{Math.max(1, 10 - Math.floor(data.tracking.route_index / 10))}d</div>
-                      </div>
-                    </div>
-
-                    {/* Journey Timeline */}
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                      <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-400 mb-3">Journey Timeline</h3>
-                      <div className="flex items-center gap-1">
-                        {["Ordered", "Processing", "Shipped", "In Transit", "Customs", "Delivered"].map((stage, i) => (
-                          <div key={i} className="flex-1 text-center">
-                            <div className={`w-full h-1.5 rounded-full mb-1 ${data.tracking.route_index >= (i * 20) ? "bg-emerald-500" : "bg-white/10"}`} />
-                            <span className={`text-[8px] font-mono ${data.tracking.route_index >= (i * 20) ? "text-emerald-400" : "text-slate-600"}`}>{stage}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {data.tracking.delays_encountered > 0 && !data.tracking.expedite_paid && (
-                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="w-5 h-5 text-amber-400" />
-                          <span className="text-sm text-amber-300">{data.tracking.delays_encountered} delay(s) detected</span>
-                        </div>
-                        <button onClick={async () => { try { const res = await fetchWithAuth("/api/payments/create", "POST", { method: "expedite", amount: 49 }); const json = await res.json(); if (res.ok) alert(`Expedite fee: $49 USDT. Send to: ${json.wallet_address}`); else alert(json.error || "Failed"); } catch { alert("Error"); } }} className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-300 transition cursor-pointer">Expedite Shipping ($49)</button>
-                      </div>
-                    )}
-
-                    {/* Live Map */}
-                    <div className="w-full h-[350px] md:h-[450px] rounded-2xl overflow-hidden border border-white/10" id="live-tracking-map-container">
-                      <LiveTrackingMap authToken={authToken} routeIndex={data.tracking.route_index} totalStops={data.tracking.total_stops} destinationCity={data.user.city || "New York"} onRefresh={loadSummaryData} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="text-center py-8 text-slate-500">
-                      <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p>No active vehicle tracking</p>
-                      <p className="text-xs mt-1">Rent or purchase a vehicle to start tracking</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Shipping Location Selector */}
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-bold">Shipping Calculator</h2>
-                    <p className="text-xs text-slate-400">Select your delivery location for price estimation</p>
-                  </div>
-                  <Globe className="w-6 h-6 text-cyan-400" />
-                </div>
-                <ShippingLocationSelector />
-              </div>
-
-              {/* Email Notification */}
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-bold">Shipment Notifications</h2>
-                    <p className="text-xs text-slate-400">Get email updates on your delivery progress</p>
-                  </div>
-                  <Mail className="w-6 h-6 text-cyan-400" />
-                </div>
-                <div className="flex gap-3">
-                  <input type="email" placeholder="your@email.com" className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40" />
-                  <button className="px-4 py-3 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer">Save</button>
-                </div>
-                <p className="text-[10px] text-slate-500 mt-2">Admin sends progress updates to this email</p>
-              </div>
-            </div>
+            <TrackingSection authToken={authToken} data={data} fetchWithAuth={fetchWithAuth} onRefresh={loadSummaryData} user={user} />
           )}
 
           {/* ==================== SHOWROOM ==================== */}
@@ -1750,6 +1652,175 @@ function HelpCenterSection({ authToken, chatMessages, chatInput, setChatInput, s
               <p className="text-[10px] text-slate-400">{item.a}</p>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== TRACKING SECTION ====================
+function TrackingSection({ authToken, data, fetchWithAuth, onRefresh, user }: any) {
+  const [notifEmail, setNotifEmail] = useState("");
+  const [notifMsg, setNotifMsg] = useState<string | null>(null);
+  const [urgentMessages, setUrgentMessages] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchWithAuth("/api/tracking/urgent-messages", "GET")
+      .then(r => r.json()).then(d => setUrgentMessages(Array.isArray(d) ? d : [])).catch(() => {});
+  }, [data?.tracking?.route_index]);
+
+  const handleSaveEmail = async () => {
+    if (!notifEmail.trim()) { setNotifMsg("Enter an email address."); return; }
+    try {
+      const res = await fetchWithAuth("/api/settings/notification-email", "POST", { email: notifEmail });
+      const json = await res.json();
+      if (res.ok) setNotifMsg("Email saved! Admin will send updates here.");
+      else setNotifMsg(json.error || "Failed to save");
+    } catch { setNotifMsg("Error saving email."); }
+  };
+
+  const routeIndex = data?.tracking?.route_index ?? 0;
+  const remainingDays = Math.max(1, 10 - Math.floor(routeIndex / 10));
+  const totalMiles = 2015;
+  const remainingMiles = Math.round(totalMiles * (1 - routeIndex / 100));
+  const billingTotal = 24900;
+  const paidSoFar = Math.round(billingTotal * (routeIndex / 100));
+
+  return (
+    <div className="space-y-5">
+      {/* Urgent Admin Messages */}
+      {urgentMessages.length > 0 && (
+        <div className="space-y-2">
+          {urgentMessages.map((msg: any, i: number) => (
+            <div key={i} className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-red-300">Admin Urgent Update</p>
+                <p className="text-[11px] text-red-200/80 mt-0.5">{msg.message}</p>
+                <p className="text-[10px] text-red-400/60 mt-1 font-mono">{msg.created_at ? new Date(msg.created_at).toLocaleString() : ""}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data?.tracking ? (
+        <>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-[10px] text-slate-500 font-mono">Progress</div>
+              <div className="text-lg font-bold text-cyan-400">{routeIndex}%</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-[10px] text-slate-500 font-mono">Delays</div>
+              <div className="text-lg font-bold text-amber-400">{data.tracking.delays_encountered ?? 0}</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-[10px] text-slate-500 font-mono">Destination</div>
+              <div className="text-sm font-bold truncate">{data.user?.city || "New York"}</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-[10px] text-slate-500 font-mono">ETA</div>
+              <div className="text-lg font-bold text-emerald-400">~{remainingDays}d</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-[10px] text-slate-500 font-mono">Miles Left</div>
+              <div className="text-lg font-bold text-cyan-300">{remainingMiles.toLocaleString()}</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3 text-center">
+              <div className="text-[10px] text-slate-500 font-mono">Billing</div>
+              <div className="text-sm font-bold text-emerald-400">${paidSoFar.toLocaleString()}</div>
+            </div>
+          </div>
+
+          {/* Journey Timeline */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+            <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-400 mb-3">Journey Timeline</h3>
+            <div className="flex items-center gap-1">
+              {["Ordered", "Processing", "Shipped", "In Transit", "Customs", "Delivered"].map((stage, i) => (
+                <div key={i} className="flex-1 text-center">
+                  <div className={`w-full h-1.5 rounded-full mb-1 ${routeIndex >= (i * 20) ? "bg-emerald-500" : "bg-white/10"}`} />
+                  <span className={`text-[8px] font-mono ${routeIndex >= (i * 20) ? "text-emerald-400" : "text-slate-600"}`}>{stage}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Delay Banner */}
+          {(data.tracking.delays_encountered ?? 0) > 0 && !data.tracking.expedite_paid && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                <span className="text-sm text-amber-300">{data.tracking.delays_encountered} delay(s) detected — pay expedite fee to prioritize</span>
+              </div>
+              <button onClick={async () => { try { const res = await fetchWithAuth("/api/payments/create", "POST", { method: "expedite", amount: 49 }); const json = await res.json(); if (res.ok) alert(`Expedite fee: $49 USDT. Send to: ${json.wallet_address}`); else alert(json.error || "Failed"); } catch { alert("Error"); } }}
+                className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-300 transition cursor-pointer shrink-0">Expedite ($49)</button>
+            </div>
+          )}
+
+          {/* Live Map */}
+          <div className="w-full h-[300px] sm:h-[400px] lg:h-[500px] rounded-2xl overflow-hidden border border-white/10" id="live-tracking-map-container">
+            <LiveTrackingMap authToken={authToken} routeIndex={routeIndex} totalStops={data.tracking.total_stops || 100} destinationCity={data.user?.city || "New York"} onRefresh={onRefresh} />
+          </div>
+
+          {/* Billing & Stops Info */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+              <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-400 mb-3">Billing Summary</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between"><span className="text-slate-400">Total Vehicle Cost</span><span className="font-mono font-bold">${billingTotal.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Paid So Far</span><span className="font-mono font-bold text-emerald-400">${paidSoFar.toLocaleString()}</span></div>
+                <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-slate-400">Remaining</span><span className="font-mono font-bold text-amber-400">${(billingTotal - paidSoFar).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Expedite Fee (if needed)</span><span className="font-mono font-bold">$49</span></div>
+              </div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+              <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-400 mb-3">Route Stops</h3>
+              <div className="space-y-2 text-xs">
+                {["Port of Los Angeles — Departure", "Phoenix, AZ — Checkpoint", "Dallas, TX — Charging Stop", "Memphis, TN — Hub Inspection", `${data.user?.city || "New York"}, ${data.user?.state || ""} — Final Destination`].map((stop, i) => {
+                  const stopProgress = (i / 4) * 100;
+                  const reached = routeIndex >= stopProgress;
+                  return (
+                    <div key={i} className={`flex items-center gap-2 ${reached ? "text-emerald-300" : "text-slate-500"}`}>
+                      <div className={`w-2 h-2 rounded-full ${reached ? "bg-emerald-400" : "bg-white/10"}`} />
+                      <span>{stop}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-center py-12">
+          <Package className="w-12 h-12 mx-auto mb-3 opacity-50 text-slate-500" />
+          <p className="text-slate-400">No active vehicle tracking</p>
+          <p className="text-xs text-slate-500 mt-1">Rent or purchase a vehicle to start tracking</p>
+        </div>
+      )}
+
+      {/* Shipping Location Selector */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+        <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-400 mb-3">Shipping Calculator</h3>
+        <ShippingLocationSelector />
+      </div>
+
+      {/* Email Notification */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+          <div>
+            <h3 className="text-sm font-bold">Shipment Notifications</h3>
+            <p className="text-xs text-slate-400">Admin sends urgent updates to this email</p>
+          </div>
+          <Mail className="w-5 h-5 text-cyan-400 shrink-0" />
+        </div>
+        {notifMsg && <p className={`text-xs mb-2 ${notifMsg.includes("saved") || notifMsg.includes("saved") ? "text-emerald-400" : "text-red-400"}`}>{notifMsg}</p>}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input type="email" value={notifEmail} onChange={e => setNotifEmail(e.target.value)} placeholder="Enter your email for shipment updates" className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500/40" />
+          <button onClick={handleSaveEmail} className="px-5 py-2.5 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer">
+            Save Email
+          </button>
         </div>
       </div>
     </div>

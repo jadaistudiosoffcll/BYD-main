@@ -1884,6 +1884,25 @@ app.post("/api/admin/tracking/:userId/dispatch", authenticateAdmin, async (req: 
   res.json({ success: true });
 });
 
+// Urgent tracking messages for users
+app.get("/api/tracking/urgent-messages", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const msgs = await db.all("SELECT * FROM tracking_urgent_updates WHERE user_id = ? ORDER BY id DESC LIMIT 10", [req.user.id]);
+  const notifs = await db.all("SELECT id, message, sent_at as created_at FROM notifications WHERE user_id = ? AND type IN ('dispatch','tracking') ORDER BY id DESC LIMIT 10", [req.user.id]);
+  const combined = [...msgs, ...notifs].sort((a: any, b: any) => new Date(b.created_at || b.sent_at || 0).getTime() - new Date(a.created_at || a.sent_at || 0).getTime()).slice(0, 10);
+  res.json(combined);
+});
+
+app.post("/api/admin/tracking/urgent", authenticateAdmin, async (req: any, res) => {
+  const { user_id, message } = req.body;
+  if (!user_id || !message) return res.status(400).json({ error: "user_id and message required." });
+  const db = await getDb();
+  await db.run("INSERT INTO tracking_urgent_updates (user_id, message) VALUES (?, ?)", [user_id, message]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'dispatch', 'Urgent Update from Admin', ?)", [user_id, message]);
+  await logAdminAction("Sent urgent tracking update", `User ${user_id}`, req.ip, req.adminId);
+  res.json({ success: true });
+});
+
 // Delays management
 app.get("/api/admin/delays", authenticateAdmin, async (req: any, res) => {
   const db = await getDb();
