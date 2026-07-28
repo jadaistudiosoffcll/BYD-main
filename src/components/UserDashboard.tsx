@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  LayoutDashboard, Map, Grid3X3, Users, Gift, Gamepad2, Car, FileCheck, ShieldCheck, HeadphonesIcon, Settings, Copy, Check, RefreshCw, X, Eye, EyeOff, Camera, ChevronRight, ExternalLink, Clock, MapPin, Wallet, CreditCard, Sparkles, AlertTriangle, CheckCircle, ArrowUpRight, Search, LogOut, Bell, DollarSign, BarChart3, Navigation, Package, Ship, Gem, HeartHandshake, HandCoins, TreePine, BadgeCheck, BookOpen, MessageSquare, Loader2, UserCheck, Crown, TrendingUp, ArrowRight, Send, Globe, Smartphone, Mail, Phone, QrCode, Upload, Video, Target, Swords, Diamond, Medal, Star, Zap, Flame, PartyPopper, Lock, Unlock, Shield, Coins, Info, HelpCircle, ThumbsUp, Play, Gift as GiftIcon, Award, Ticket, Download, RotateCcw, Minus, Plus } from "lucide-react";
+  LayoutDashboard, Map, Grid3X3, Users, Gift, Gamepad2, Car, FileCheck, ShieldCheck, HeadphonesIcon, Settings, Copy, Check, RefreshCw, X, Eye, EyeOff, Camera, ChevronRight, ExternalLink, Clock, MapPin, Wallet, CreditCard, Sparkles, AlertTriangle, CheckCircle, ArrowUpRight, Search, LogOut, Bell, DollarSign, BarChart3, Navigation, Package, Ship, Gem, HeartHandshake, HandCoins, TreePine, BadgeCheck, BookOpen, MessageSquare, Loader2, UserCheck, Crown, TrendingUp, ArrowRight, Send, Globe, Smartphone, Mail, Phone, QrCode, Upload, Video, Target, Swords, Diamond, Medal, Star, Zap, Flame, PartyPopper, Lock, Unlock, Shield, Coins, Info, HelpCircle, ThumbsUp, Play, Gift as GiftIcon, Award, Ticket, Download, RotateCcw, Minus, Plus, Leaf } from "lucide-react";
 import { DashboardData, RewardItem } from "../types";
 import { NotificationBell } from "./ui/NotificationBell";
 import { DailyCheckin } from "./gamification/DailyCheckin";
@@ -527,7 +527,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                     <div className="text-[10px] text-slate-500">Day Streak</div>
                   </div>
                   <div className="bg-white/5 rounded-xl p-3 text-center col-span-2">
-                    <LeafIcon className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                    <Leaf className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
                     <div className="text-lg font-bold font-mono">{user.carbon_lbs_saved || 0}</div>
                     <div className="text-[10px] text-slate-500">Lbs CO₂ Saved</div>
                   </div>

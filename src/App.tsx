@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Component, ReactNode } from "react";
 import LandingPage from "./components/LandingPage";
 import PaymentFlow from "./components/PaymentFlow";
 import UserDashboard from "./components/UserDashboard";
@@ -8,6 +8,32 @@ import SupportWidget from "./components/SupportWidget";
 import { VehiclesPage } from "./components/pages/VehiclesPage";
 import { Home, Compass, HelpCircle, LogOut, User, Shield, Bell, Zap, Menu, X, UserCheck, Car, Gift, Award, MapPin, Gamepad2, DollarSign, BarChart3, Settings, Users, CreditCard, MessageSquare, Sparkles, LayoutDashboard, Search, HeartHandshake, Grid3X3, Camera, Crown, TrendingUp, Map, Navigation, Mail, Smartphone, Wallet, QrCode, Copy, Check, RefreshCw, ExternalLink } from "lucide-react";
 import AIChatWidget from "./components/AIChatWidget";
+
+class AppErrorBoundary extends Component<{children: ReactNode}, {error: Error | null}> {
+  constructor(props: {children: ReactNode}) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) return (
+      <div className="min-h-screen bg-[#0a0e1a] text-white flex items-center justify-center p-8">
+        <div className="max-w-lg w-full bg-red-500/10 border border-red-500/30 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <svg className="w-8 h-8 text-red-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <h2 className="text-lg font-bold text-red-300">Something went wrong</h2>
+          </div>
+          <p className="text-sm text-red-200/70 font-mono break-all">{this.state.error.message}</p>
+          <details className="text-xs text-red-200/50 max-h-48 overflow-y-auto">
+            <summary className="cursor-pointer mb-1">Stack trace</summary>
+            <pre className="whitespace-pre-wrap font-mono text-[10px]">{this.state.error.stack}</pre>
+          </details>
+          <button onClick={() => { this.setState({ error: null }); window.location.href = "/"; }} className="px-6 py-2 bg-red-500/20 border border-red-500/40 rounded-xl text-xs font-bold text-red-300 hover:bg-red-500/30 cursor-pointer">
+            Reload App
+          </button>
+        </div>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 
 export default function App() {
   const [currentView, setCurrentView] = useState<"landing" | "vehicles" | "payment" | "dashboard" | "admin" | "help">("landing");
@@ -138,6 +164,7 @@ export default function App() {
   ];
 
   return (
+    <AppErrorBoundary>
     <div className="min-h-screen bg-[#0a0e1a] text-white font-sans flex flex-col">
       {/* Ticker */}
       <div className="h-7 bg-[#0d1117] flex items-center px-4 overflow-hidden border-b border-white/5 select-none">
@@ -359,5 +386,6 @@ export default function App() {
       {token && !user?.is_admin && <AIChatWidget token={token} />}
       <SupportWidget />
     </div>
+    </AppErrorBoundary>
   );
 }
