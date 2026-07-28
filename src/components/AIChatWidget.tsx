@@ -56,13 +56,13 @@ export default function AIChatWidget({ token }: AIChatWidgetProps) {
     <>
       {/* Floating button */}
       <button onClick={() => setOpen(!open)}
-        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 cursor-pointer ${open ? 'bg-red-500 hover:bg-red-600 rotate-0' : 'bg-gradient-to-r from-[#00E5FF] to-blue-500 hover:shadow-[#00E5FF]/25 hover:shadow-lg animate-bounce'}`}>
+        className={`fixed bottom-6 left-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 cursor-pointer ${open ? 'bg-red-500 hover:bg-red-600 rotate-0' : 'bg-gradient-to-r from-[#00E5FF] to-blue-500 hover:shadow-[#00E5FF]/25 hover:shadow-lg animate-bounce'}`}>
         {open ? <X className="w-6 h-6 text-white" /> : <MessageSquare className="w-6 h-6 text-[#0a0e1a]" />}
       </button>
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-[380px] max-w-[calc(100vw-48px)] h-[520px] max-h-[calc(100vh-150px)] bg-[#0a0e1a]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-24 left-6 z-50 w-[380px] max-w-[calc(100vw-48px)] h-[520px] max-h-[calc(100vh-150px)] bg-[#0a0e1a]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-[#00E5FF]/10 to-blue-500/10 border-b border-white/10 p-4 flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-[#00E5FF] to-blue-500 rounded-xl flex items-center justify-center">

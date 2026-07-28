@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard, Map, Grid3X3, Users, Gift, Gamepad2, Car, FileCheck, ShieldCheck, HeadphonesIcon, Settings, Copy, Check, RefreshCw, X, Eye, EyeOff, Camera, ChevronRight, ExternalLink, Clock, MapPin, Wallet, CreditCard, Sparkles, AlertTriangle, CheckCircle, ArrowUpRight, Search, LogOut, Bell, DollarSign, BarChart3, Navigation, Package, Ship, Gem, HeartHandshake, HandCoins, TreePine, BadgeCheck, BookOpen, MessageSquare, Loader2, UserCheck, Crown, TrendingUp, ArrowRight, Send, Globe, Smartphone, Mail, Phone, QrCode, Upload, Video, Target, Swords, Diamond, Medal, Star, Zap, Flame, PartyPopper, Lock, Unlock, Shield, Coins, Info, HelpCircle, ThumbsUp, Play, Gift as GiftIcon, Award, Ticket, Download, RotateCcw, Minus, Plus, Leaf, Calendar, Truck, Newspaper } from "lucide-react";
 import { DashboardData, RewardItem } from "../types";
@@ -7,8 +7,6 @@ import { DailyCheckin } from "./gamification/DailyCheckin";
 import { SpinWheel } from "./gamification/SpinWheel";
 import { BYDQuiz } from "./gamification/BYDQuiz";
 import { LiveTrackingMap } from "./map/LiveTrackingMap";
-import { LiveWebcamGrid } from "./live/LiveWebcamGrid";
-import { TransitUpdatePanel } from "./dashboard/TransitUpdatePanel";
 import { RentVehiclePage } from "./rental/RentVehiclePage";
 import { InvestPage } from "./investment/InvestPage";
 import { ReferralTreeSection } from "./referrals/ReferralTreeSection";
@@ -131,50 +129,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
     } catch { alert("Network error"); }
   };
 
-  // KYC
-  const [kycStep, setKycStep] = useState(0);
-  const [kycForm, setKycForm] = useState({ name: "", dob: "", nationality: "US", idNumber: "", idFront: "", idBack: "", addressProof: "", selfie: "", sourceOfFunds: "", annualIncome: "", investmentExperience: "" });
-  const [kycFiles, setKycFiles] = useState<Record<string, string>>({});
-  const [kycLoading, setKycLoading] = useState(false);
-  const [kycMsg, setKycMsg] = useState<string | null>(null);
-  const [kycError, setKycError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [webcamActive, setWebcamActive] = useState(false);
-  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
-
-  const handleFileChange = (field: string, file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => { if (typeof reader.result === "string") setKycFiles(p => ({...p, [field]: reader.result})); };
-    reader.readAsDataURL(file);
-  };
-
-  const startWebcam = async () => {
-    try { const stream = await navigator.mediaDevices.getUserMedia({ video: true }); setWebcamStream(stream); setWebcamActive(true); if (videoRef.current) videoRef.current.srcObject = stream; }
-    catch { alert("Webcam access denied or unavailable"); }
-  };
-
-  const captureSelfie = () => {
-    if (videoRef.current && webcamStream) {
-      const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth || 640;
-      canvas.height = videoRef.current.videoHeight || 480;
-      const ctx = canvas.getContext("2d");
-      if (ctx) { ctx.drawImage(videoRef.current, 0, 0); setKycFiles(p => ({...p, selfie: canvas.toDataURL("image/jpeg")})); }
-      webcamStream.getTracks().forEach(t => t.stop());
-      setWebcamStream(null); setWebcamActive(false);
-    }
-  };
-
-  const handleKycSubmit = async () => {
-    setKycLoading(true); setKycMsg(null); setKycError(null);
-    try {
-      const res = await fetchWithAuth("/api/kyc/submit", "POST", { name: kycForm.name, dob: kycForm.dob, nationality: kycForm.nationality, idNumber: kycForm.idNumber, idFront: kycFiles.idFront || "", idBack: kycFiles.idBack || "", selfie: kycFiles.selfie || "", addressProof: kycFiles.addressProof || "", sourceOfFunds: kycForm.sourceOfFunds, annualIncome: kycForm.annualIncome, investmentExperience: kycForm.investmentExperience });
-      const json = await res.json();
-      if (res.ok) { setKycMsg("KYC submitted successfully! Pending review."); loadSummaryData(); }
-      else setKycError(json.error || "KYC submission failed");
-    } catch { setKycError("Connection error"); }
-    finally { setKycLoading(false); }
-  };
+  // KYC (handled by CameraKYC component only)
 
   // Drive to Earn
   const [driveMiles, setDriveMiles] = useState("");
@@ -364,7 +319,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <button onClick={handleToggleHideBalances} className="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition cursor-pointer">
               {hideBalances ? <Eye className="w-4 h-4 text-cyan-400" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
             </button>
@@ -377,11 +332,11 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
               <span className="text-[10px] text-slate-500 font-mono uppercase">Balance</span>
               <div className="text-lg font-bold text-emerald-400 font-mono">{formatBalance(user.balance || 0)}</div>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => setActiveTab("finance")} className="px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer whitespace-nowrap flex items-center gap-1">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button onClick={() => setActiveTab("finance")} className="flex-1 sm:flex-none px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer whitespace-nowrap flex items-center justify-center gap-1">
                 <DollarSign className="w-3 h-3" /> Add Money
               </button>
-              <button onClick={() => setActiveTab("finance")} className="px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg text-[10px] font-bold text-amber-300 hover:bg-amber-500/30 transition cursor-pointer whitespace-nowrap flex items-center gap-1">
+              <button onClick={() => setActiveTab("finance")} className="flex-1 sm:flex-none px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg text-[10px] font-bold text-amber-300 hover:bg-amber-500/30 transition cursor-pointer whitespace-nowrap flex items-center justify-center gap-1">
                 <ArrowUpRight className="w-3 h-3" /> Withdraw
               </button>
             </div>
@@ -430,11 +385,11 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                   <div className="flex-1">
                     <h3 className="text-lg font-bold text-emerald-300">Identity Verified ✓</h3>
                     <p className="text-sm text-emerald-200/70 mt-1">You have full access to all platform features. Welcome to BYD Horizon Club!</p>
-                    <div className="flex gap-3 mt-4">
+                    <div className="flex flex-wrap gap-3 mt-4">
                       <button onClick={() => setActiveTab("rent")} className="px-4 py-2 bg-cyan-500/30 border border-cyan-500/40 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/40 transition cursor-pointer flex items-center gap-2">
                         <Car className="w-4 h-4" /> Rent a Vehicle
                       </button>
-                      <button onClick={() => onNavigate("vehicles")} className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white/80 hover:bg-white/15 transition cursor-pointer flex items-center gap-2">
+                      <button onClick={() => setActiveTab("showroom")} className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white/80 hover:bg-white/15 transition cursor-pointer flex items-center gap-2">
                         <Grid3X3 className="w-4 h-4" /> Browse Showroom
                       </button>
                       <button onClick={() => setActiveTab("finance")} className="px-4 py-2 bg-emerald-500/30 border border-emerald-500/40 rounded-xl text-xs font-bold text-emerald-300 hover:bg-emerald-500/40 transition cursor-pointer flex items-center gap-2">
@@ -730,188 +685,8 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
 
           {/* ==================== KYC ==================== */}
           {activeTab === "kyc" && (
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto">
               <CameraKYC token={authToken} currentStatus={data?.user?.kyc_status} onComplete={() => loadSummaryData()} />
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-bold">Identity Verification (KYC)</h2>
-                  <p className="text-xs text-slate-400">Complete verification to unlock all features</p>
-                </div>
-                <FileCheck className="w-6 h-6 text-cyan-400" />
-              </div>
-
-              {user.kyc_status === "verified" ? (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-8 text-center">
-                  <BadgeCheck className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-emerald-300">Verified</h3>
-                  <p className="text-sm text-slate-400 mt-2">Your identity has been verified</p>
-                </div>
-              ) : user.kyc_status === "pending" ? (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-8 text-center">
-                  <Clock className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-amber-300">Pending Review</h3>
-                  <p className="text-sm text-slate-400 mt-2">Your documents are being reviewed</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Step Indicator */}
-                  <div className="flex gap-2 mb-6">
-                    {["Identity", "Documents", "Selfie", "Financial"].map((step, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setKycStep(i)}
-                        className={`flex-1 py-2 text-center text-[10px] font-mono uppercase rounded-xl border transition cursor-pointer ${
-                          kycStep === i
-                            ? "bg-cyan-500/20 border-cyan-500/30 text-cyan-300"
-                            : "bg-white/5 border-white/10 text-slate-500 hover:text-slate-300"
-                        }`}
-                      >
-                        {step}
-                      </button>
-                    ))}
-                  </div>
-
-                  {kycMsg && <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-sm text-emerald-300 flex items-center gap-2"><CheckCircle className="w-5 h-5" />{kycMsg}</div>}
-                  {kycError && <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-sm text-red-300 flex items-center gap-2"><AlertTriangle className="w-5 h-5" />{kycError}</div>}
-
-                  {kycStep === 0 && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Full Legal Name</label>
-                        <input type="text" value={kycForm.name} onChange={e => setKycForm(p => ({...p, name: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40" placeholder="John Doe" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Date of Birth</label>
-                        <input type="date" value={kycForm.dob} onChange={e => setKycForm(p => ({...p, dob: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Nationality</label>
-                        <input type="text" value={kycForm.nationality} onChange={e => setKycForm(p => ({...p, nationality: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40" placeholder="US" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">ID / Passport Number</label>
-                        <input type="text" value={kycForm.idNumber} onChange={e => setKycForm(p => ({...p, idNumber: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40" placeholder="AB123456" />
-                      </div>
-                    </div>
-                  )}
-
-                  {kycStep === 1 && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">ID Front</label>
-                        <label className="flex flex-col items-center justify-center w-full h-32 bg-white/5 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:bg-white/10 transition">
-                          {kycFiles.idFront ? <img src={kycFiles.idFront} alt="ID Front" className="h-full object-contain" /> : <><Upload className="w-6 h-6 text-slate-500 mb-1" /><span className="text-xs text-slate-500">Upload ID Front</span></>}
-                          <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFileChange("idFront", e.target.files[0])} />
-                        </label>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">ID Back</label>
-                        <label className="flex flex-col items-center justify-center w-full h-32 bg-white/5 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:bg-white/10 transition">
-                          {kycFiles.idBack ? <img src={kycFiles.idBack} alt="ID Back" className="h-full object-contain" /> : <><Upload className="w-6 h-6 text-slate-500 mb-1" /><span className="text-xs text-slate-500">Upload ID Back</span></>}
-                          <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFileChange("idBack", e.target.files[0])} />
-                        </label>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Proof of Address</label>
-                        <label className="flex flex-col items-center justify-center w-full h-32 bg-white/5 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:bg-white/10 transition">
-                          {kycFiles.addressProof ? <img src={kycFiles.addressProof} alt="Address Proof" className="h-full object-contain" /> : <><Upload className="w-6 h-6 text-slate-500 mb-1" /><span className="text-xs text-slate-500">Upload Utility Bill</span></>}
-                          <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFileChange("addressProof", e.target.files[0])} />
-                        </label>
-                      </div>
-                    </div>
-                  )}
-
-                  {kycStep === 2 && (
-                    <div className="space-y-4">
-                      <div className="text-center">
-                        <div className="relative w-48 h-48 mx-auto bg-black rounded-2xl overflow-hidden border border-white/10">
-                          {kycFiles.selfie ? (
-                            <img src={kycFiles.selfie} alt="Selfie" className="w-full h-full object-cover" />
-                          ) : webcamActive ? (
-                            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                              <Camera className="w-10 h-10 mb-2" />
-                              <span className="text-xs">Webcam off</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex justify-center gap-3 mt-4">
-                          {!webcamActive && !kycFiles.selfie && (
-                            <button onClick={startWebcam} className="px-4 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 cursor-pointer hover:bg-cyan-500/30 transition">
-                              <Camera className="w-4 h-4 inline mr-1" /> Start Webcam
-                            </button>
-                          )}
-                          {webcamActive && (
-                            <button onClick={captureSelfie} className="px-4 py-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 cursor-pointer hover:bg-emerald-500/30 transition">
-                              <Camera className="w-4 h-4 inline mr-1" /> Capture
-                            </button>
-                          )}
-                          {kycFiles.selfie && (
-                            <button onClick={() => setKycFiles(p => ({...p, selfie: ""}))} className="px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-xl text-xs font-bold text-red-300 cursor-pointer hover:bg-red-500/30 transition">
-                              Retake
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {kycStep === 3 && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Source of Funds</label>
-                        <select value={kycForm.sourceOfFunds} onChange={e => setKycForm(p => ({...p, sourceOfFunds: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40">
-                          <option value="">Select...</option>
-                          <option value="employment">Employment Income</option>
-                          <option value="investment">Investment Returns</option>
-                          <option value="business">Business Revenue</option>
-                          <option value="crypto">Cryptocurrency</option>
-                          <option value="inheritance">Inheritance</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Annual Income</label>
-                        <select value={kycForm.annualIncome} onChange={e => setKycForm(p => ({...p, annualIncome: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40">
-                          <option value="">Select...</option>
-                          <option value="0-25000">$0 - $25,000</option>
-                          <option value="25000-50000">$25,000 - $50,000</option>
-                          <option value="50000-100000">$50,000 - $100,000</option>
-                          <option value="100000-250000">$100,000 - $250,000</option>
-                          <option value="250000+">$250,000+</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Investment Experience</label>
-                        <select value={kycForm.investmentExperience} onChange={e => setKycForm(p => ({...p, investmentExperience: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500/40">
-                          <option value="">Select...</option>
-                          <option value="none">No Experience</option>
-                          <option value="beginner">Beginner</option>
-                          <option value="intermediate">Intermediate</option>
-                          <option value="advanced">Advanced</option>
-                          <option value="professional">Professional</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between pt-4 border-t border-white/10">
-                    <button onClick={() => setKycStep(p => Math.max(0, p - 1))} disabled={kycStep === 0} className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs disabled:opacity-30 cursor-pointer hover:bg-white/10 transition">
-                      Previous
-                    </button>
-                    {kycStep < 3 ? (
-                      <button onClick={() => setKycStep(p => p + 1)} className="px-6 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 cursor-pointer hover:bg-cyan-500/30 transition">
-                        Next
-                      </button>
-                    ) : (
-                      <button onClick={handleKycSubmit} disabled={kycLoading} className="px-6 py-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 cursor-pointer hover:bg-emerald-500/30 transition disabled:opacity-40">
-                        {kycLoading ? "Submitting..." : "Submit KYC"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -1544,12 +1319,12 @@ function DonationsSection({ user, data, fetchWithAuth, onRefresh, onKycRequired 
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { name: "Green Earth Initiative", icon: TreePine, color: "emerald", points: 500 },
-              { name: "Ocean Cleanup Project", icon: Ship, color: "blue", points: 300 },
-              { name: "EV Education Fund", icon: BookOpen, color: "cyan", points: 200 },
+              { name: "Green Earth Initiative", icon: TreePine, bgClass: "bg-emerald-500/5", borderClass: "border-emerald-500/20", iconClass: "text-emerald-400", points: 500 },
+              { name: "Ocean Cleanup Project", icon: Ship, bgClass: "bg-blue-500/5", borderClass: "border-blue-500/20", iconClass: "text-blue-400", points: 300 },
+              { name: "EV Education Fund", icon: BookOpen, bgClass: "bg-cyan-500/5", borderClass: "border-cyan-500/20", iconClass: "text-cyan-400", points: 200 },
             ].map((c, i) => (
-              <div key={i} className={`bg-${c.color}-500/5 border border-${c.color}-500/20 rounded-xl p-5 flex flex-col`}>
-                <c.icon className={`w-8 h-8 text-${c.color}-400 mb-3`} />
+              <div key={i} className={`${c.bgClass} ${c.borderClass} rounded-xl p-5 flex flex-col`}>
+                <c.icon className={`w-8 h-8 ${c.iconClass} mb-3`} />
                 <h4 className="text-sm font-bold">{c.name}</h4>
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
                   <span className="text-xs font-mono text-cyan-400">{c.points} pts</span>

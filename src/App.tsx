@@ -6,7 +6,7 @@ import AdminPanel from "./components/AdminPanel";
 import HelpPage from "./components/HelpPage";
 import SupportWidget from "./components/SupportWidget";
 import { VehiclesPage } from "./components/pages/VehiclesPage";
-import { Home, Compass, HelpCircle, LogOut, User, Shield, Bell, Zap, Menu, X, UserCheck, Car, Gift, Award, MapPin, Gamepad2, DollarSign, BarChart3, Settings, Users, CreditCard, MessageSquare, Sparkles, LayoutDashboard, Search, HeartHandshake, Grid3X3, Camera, Crown, TrendingUp, Map, Navigation, Mail, Smartphone, Wallet, QrCode, Copy, Check, RefreshCw, ExternalLink } from "lucide-react";
+import { Home, Compass, HelpCircle, LogOut, User, Shield, Zap, Menu, X, UserCheck, Car, Gift, Award, MapPin, Gamepad2, DollarSign, BarChart3, Settings, Users, CreditCard, MessageSquare, Sparkles, LayoutDashboard, Search, HeartHandshake, Grid3X3, Camera, Crown, TrendingUp, Map, Navigation, Mail, Smartphone, Wallet, QrCode, Copy, Check, RefreshCw, ExternalLink } from "lucide-react";
 import AIChatWidget from "./components/AIChatWidget";
 
 class AppErrorBoundary extends Component<{children: ReactNode}, {error: Error | null}> {
@@ -44,9 +44,6 @@ export default function App() {
   const [charityAmount, setCharityAmount] = useState(500450.0);
   const [appName, setAppName] = useState("BYD Horizon Club");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPass, setAdminPass] = useState("");
@@ -71,18 +68,6 @@ export default function App() {
       }
     }
   }, []);
-
-  useEffect(() => {
-    if (token && !user?.is_admin) {
-      fetch("/api/notifications", { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(d => {
-          setNotifications(Array.isArray(d) ? d.slice(0, 5) : []);
-          setUnreadCount(Array.isArray(d) ? d.filter((n: any) => !n.is_read).length : 0);
-        })
-        .catch(() => {});
-    }
-  }, [token, currentView]);
 
   const handleNavigate = (view: "landing" | "vehicles" | "payment" | "dashboard" | "admin" | "help", params?: any) => {
     setViewParams(params);
@@ -151,7 +136,7 @@ export default function App() {
 
   const sidebarItems = [
     { icon: BarChart3, label: "Dashboard", view: "dashboard" as const, tab: "dashboard" },
-    { icon: Grid3X3, label: "Showroom", view: "vehicles" as const },
+    { icon: Grid3X3, label: "Showroom", view: "dashboard" as const, tab: "showroom" },
     { icon: Car, label: "Rent a Vehicle", view: "dashboard" as const, tab: "rent" },
     { icon: MapPin, label: "Tracking & Transit", view: "dashboard" as const, tab: "tracking" },
     { icon: TrendingUp, label: "Financial Hub", view: "dashboard" as const, tab: "finance" },
@@ -192,12 +177,6 @@ export default function App() {
             )}
           </div>
           <div className="flex items-center space-x-2">
-            {token && !user?.is_admin && (
-              <button onClick={() => setShowNotifPanel(!showNotifPanel)} className="relative p-2 rounded-lg hover:bg-white/5 transition">
-                <Bell className="w-4 h-4 text-white/70" />
-                {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#00e5ff] text-[#0a0e1a] text-[8px] font-bold rounded-full flex items-center justify-center">{unreadCount}</span>}
-              </button>
-            )}
             {token ? (
               <div className="flex items-center space-x-2">
                 <div className="hidden sm:flex items-center space-x-1.5 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
@@ -226,7 +205,7 @@ export default function App() {
       {token && !user?.is_admin && currentView === "dashboard" ? (
         <div className="flex flex-1">
           {/* Mobile sidebar toggle */}
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="fixed bottom-4 left-4 z-50 lg:hidden bg-[#00e5ff] text-[#0a0e1a] p-3 rounded-full shadow-lg shadow-[#00e5ff]/20">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="fixed bottom-20 left-4 z-50 lg:hidden bg-[#00e5ff] text-[#0a0e1a] p-3 rounded-full shadow-lg shadow-[#00e5ff]/20">
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           {/* Sidebar */}
@@ -249,25 +228,6 @@ export default function App() {
               ))}
             </nav>
           </aside>
-          {/* Notification panel */}
-          {showNotifPanel && (
-            <div className="fixed top-16 right-4 w-80 bg-[#0d1117] border border-white/10 rounded-xl shadow-2xl z-50 backdrop-blur-xl">
-              <div className="p-3 border-b border-white/5 flex justify-between items-center">
-                <span className="text-xs font-bold font-mono uppercase tracking-wider">Notifications</span>
-                <button onClick={() => setShowNotifPanel(false)} className="text-white/40 hover:text-white"><X className="w-3.5 h-3.5" /></button>
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <p className="text-xs text-white/40 p-4 text-center">No notifications</p>
-                ) : notifications.map((n: any) => (
-                  <div key={n.id} className={`p-3 border-b border-white/5 hover:bg-white/5 transition ${!n.is_read ? 'bg-[#00e5ff]/5' : ''}`}>
-                    <p className="text-xs font-medium text-white/80">{n.title || "Update"}</p>
-                    <p className="text-[10px] text-white/40 mt-0.5 line-clamp-2">{n.message}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           {/* Main content */}
           <main className="flex-1 overflow-y-auto">
             <UserDashboard authToken={token!} onNavigate={handleNavigate} initialTab={viewParams?.tab} />
