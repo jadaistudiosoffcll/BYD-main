@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  LayoutDashboard, Map, Grid3X3, Users, Gift, Gamepad2, Car, FileCheck, ShieldCheck, HeadphonesIcon, Settings, Copy, Check, RefreshCw, X, Eye, EyeOff, Camera, ChevronRight, ExternalLink, Clock, MapPin, Wallet, CreditCard, Sparkles, AlertTriangle, CheckCircle, ArrowUpRight, Search, LogOut, Bell, DollarSign, BarChart3, Navigation, Package, Ship, Gem, HeartHandshake, HandCoins, TreePine, BadgeCheck, BookOpen, MessageSquare, Loader2, UserCheck, Crown, TrendingUp, ArrowRight, Send, Globe, Smartphone, Mail, Phone, QrCode, Upload, Video, Target, Swords, Diamond, Medal, Star, Zap, Flame, PartyPopper, Lock, Unlock, Shield, Coins, Info, HelpCircle, ThumbsUp, Play, Gift as GiftIcon, Award, Ticket, Download, RotateCcw, Minus, Plus, Leaf } from "lucide-react";
+  LayoutDashboard, Map, Grid3X3, Users, Gift, Gamepad2, Car, FileCheck, ShieldCheck, HeadphonesIcon, Settings, Copy, Check, RefreshCw, X, Eye, EyeOff, Camera, ChevronRight, ExternalLink, Clock, MapPin, Wallet, CreditCard, Sparkles, AlertTriangle, CheckCircle, ArrowUpRight, Search, LogOut, Bell, DollarSign, BarChart3, Navigation, Package, Ship, Gem, HeartHandshake, HandCoins, TreePine, BadgeCheck, BookOpen, MessageSquare, Loader2, UserCheck, Crown, TrendingUp, ArrowRight, Send, Globe, Smartphone, Mail, Phone, QrCode, Upload, Video, Target, Swords, Diamond, Medal, Star, Zap, Flame, PartyPopper, Lock, Unlock, Shield, Coins, Info, HelpCircle, ThumbsUp, Play, Gift as GiftIcon, Award, Ticket, Download, RotateCcw, Minus, Plus, Leaf, Calendar, Truck, Newspaper } from "lucide-react";
 import { DashboardData, RewardItem } from "../types";
 import { NotificationBell } from "./ui/NotificationBell";
 import { DailyCheckin } from "./gamification/DailyCheckin";
@@ -434,7 +434,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                       <button onClick={() => setActiveTab("rent")} className="px-4 py-2 bg-cyan-500/30 border border-cyan-500/40 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/40 transition cursor-pointer flex items-center gap-2">
                         <Car className="w-4 h-4" /> Rent a Vehicle
                       </button>
-                      <button onClick={() => handleNavigate("vehicles")} className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white/80 hover:bg-white/15 transition cursor-pointer flex items-center gap-2">
+                      <button onClick={() => onNavigate("vehicles")} className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white/80 hover:bg-white/15 transition cursor-pointer flex items-center gap-2">
                         <Grid3X3 className="w-4 h-4" /> Browse Showroom
                       </button>
                       <button onClick={() => setActiveTab("finance")} className="px-4 py-2 bg-emerald-500/30 border border-emerald-500/40 rounded-xl text-xs font-bold text-emerald-300 hover:bg-emerald-500/40 transition cursor-pointer flex items-center gap-2">
@@ -518,7 +518,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-white/5 rounded-xl p-3 text-center">
                     <Users className="w-4 h-4 text-blue-400 mx-auto mb-1" />
-                    <div className="text-lg font-bold font-mono">{data.referralStats.paidCount}</div>
+                    <div className="text-lg font-bold font-mono">{data.referralStats?.paidCount ?? 0}</div>
                     <div className="text-[10px] text-slate-500">Referrals</div>
                   </div>
                   <div className="bg-white/5 rounded-xl p-3 text-center">
@@ -829,7 +829,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
           {/* ==================== KYC ==================== */}
           {activeTab === "kyc" && (
             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 max-w-3xl mx-auto">
-              <CameraKYC token={token} currentStatus={data?.user?.kyc_status} onComplete={() => refresh()} />
+              <CameraKYC token={authToken} currentStatus={data?.user?.kyc_status} onComplete={() => loadSummaryData()} />
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-lg font-bold">Identity Verification (KYC)</h2>

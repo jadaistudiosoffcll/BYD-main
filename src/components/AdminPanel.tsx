@@ -870,7 +870,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                       <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-[#00E5FF] to-blue-500 rounded-full" style={{ width: `${Math.min(100, (d.value / (metrics.revenue_chart?.[0]?.value || 1)) * 100)}%` }} />
                       </div>
-                      <span className="text-white/70 font-mono w-16 text-right">${d.value?.toLocaleString()}</span>
+                      <span className="text-white/70 font-mono w-16 text-right">${(d.value ?? 0).toLocaleString()}</span>
                     </div>
                   )) : <p className="text-xs text-white/40">No chart data.</p>}
                 </div>
@@ -901,7 +901,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                   <div key={i} className={`flex items-center justify-between py-2.5 border-b border-white/5 text-xs ${a.severity === 'critical' ? 'text-red-400' : a.severity === 'high' ? 'text-amber-400' : 'text-white/70'}`}>
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${a.severity === 'critical' ? 'bg-red-400 animate-pulse' : a.severity === 'high' ? 'bg-amber-400' : 'bg-white/30'}`}></span>
-                      <span className="font-mono text-[10px] uppercase">{a.type.replace(/_/g, ' ')}</span>
+                      <span className="font-mono text-[10px] uppercase">{(a.type || '').replace(/_/g, ' ')}</span>
                       <span>{a.message}</span>
                     </div>
                     <div className="flex gap-1">
@@ -1337,8 +1337,8 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
             <div className="space-y-4">
               <h2 className="text-lg font-bold">Investments</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                <div className="bg-white/5 rounded-xl p-4 text-center"><div className="text-2xl font-bold text-emerald-400 font-mono">${investments.reduce((s: number, i: any) => s + i.amount, 0).toLocaleString()}</div><div className="text-[10px] text-white/40">Total Invested</div></div>
-                <div className="bg-white/5 rounded-xl p-4 text-center"><div className="text-2xl font-bold text-cyan-400 font-mono">${investments.reduce((s: number, i: any) => s + i.current_return, 0).toFixed(2)}</div><div className="text-[10px] text-white/40">Total Returns</div></div>
+                <div className="bg-white/5 rounded-xl p-4 text-center"><div className="text-2xl font-bold text-emerald-400 font-mono">${investments.reduce((s: number, i: any) => s + (i.amount || 0), 0).toLocaleString()}</div><div className="text-[10px] text-white/40">Total Invested</div></div>
+                <div className="bg-white/5 rounded-xl p-4 text-center"><div className="text-2xl font-bold text-cyan-400 font-mono">${investments.reduce((s: number, i: any) => s + (i.current_return || 0), 0).toFixed(2)}</div><div className="text-[10px] text-white/40">Total Returns</div></div>
                 <div className="bg-white/5 rounded-xl p-4 text-center"><div className="text-2xl font-bold text-yellow-400 font-mono">{investments.length}</div><div className="text-[10px] text-white/40">Active Investments</div></div>
               </div>
               {investments.length === 0 ? <p className="text-xs text-white/30 text-center py-4">No investments yet.</p> : (

@@ -225,12 +225,16 @@ export function RentVehiclePage({ authToken, onNavigate }: Props) {
                   { id: "stripe", label: "Stripe", badge: "1-3 days", color: "purple" },
                   { id: "paypal", label: "PayPal", badge: "1-3 days", color: "cyan" },
                   { id: "bank_transfer", label: "Bank Transfer", badge: "3-5 days", color: "amber" },
-                ].map(m => (
-                  <button key={m.id} onClick={() => setBooking(p => ({ ...p, paymentMethod: m.id }))} className={`w-full p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${booking.paymentMethod === m.id ? `bg-${m.color}-500/10 border-${m.color}-500/30` : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
+                ].map(m => {
+                  const active = booking.paymentMethod === m.id;
+                  const colors: Record<string, string> = { emerald: "emerald", blue: "blue", purple: "purple", cyan: "cyan", amber: "amber" };
+                  return (
+                  <button key={m.id} onClick={() => setBooking(p => ({ ...p, paymentMethod: m.id }))} className={`w-full p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${active ? "bg-cyan-500/10 border-cyan-500/30" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
                     <span className="text-sm">{m.label}</span>
-                    <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full bg-${m.color}-500/10 text-${m.color}-400`}>{m.badge}</span>
+                    <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full ${active ? "bg-cyan-500/10 text-cyan-400" : "bg-white/10 text-white/40"}`}>{m.badge}</span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
               <button disabled={!availability?.available || submitting || !booking.startDate || !booking.endDate} onClick={handleBook} className="w-full mt-4 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-sm rounded-xl hover:shadow-lg hover:shadow-cyan-500/25 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Confirm & Pay"}

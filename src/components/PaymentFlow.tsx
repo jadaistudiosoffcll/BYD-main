@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   CreditCard, Shield, ChevronRight, Lock, Copy, CheckCircle,
   RefreshCcw, HelpCircle, Camera, Check, FileText, Upload, Eye, EyeOff,
-  Wallet, Bitcoin, Banknote, Clock, Zap, ArrowRight, AlertTriangle, Loader2
+  Wallet, Bitcoin, Banknote, Clock, Zap, ArrowRight, AlertTriangle, Loader2, Send
 } from 'lucide-react';
 import QRPaymentScanner from './QRPaymentScanner';
 
@@ -796,7 +796,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
         <div className="relative">
           <input type="file" accept="image/*,.pdf" className="hidden" id="bankProof" onChange={e => {
             const file = e.target.files?.[0];
-            if (file) updateForm('bankProofFile', file); updateForm('bankProofName', file.name);
+            if (file) { updateForm('bankProofFile', file); updateForm('bankProofName', file.name); }
           }} />
           <label htmlFor="bankProof" className="flex items-center gap-3 p-4 bg-white/5 border border-dashed border-white/10 rounded-xl cursor-pointer hover:border-emerald-500/30 transition-all">
             <Upload className="w-5 h-5 text-white/40" />
