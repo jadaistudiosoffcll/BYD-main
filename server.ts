@@ -11,6 +11,26 @@ const PORT = 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// ==== WIDE ERROR HANDLING: auto-wrap EVERY route handler ====
+// Any thrown error / rejected promise in any handler is forwarded to the
+// global error handler instead of crashing the process.
+['get', 'post', 'put', 'patch', 'delete'].forEach(method => {
+  const original = (app as any)[method].bind(app);
+  (app as any)[method] = (path: string, ...handlers: any[]) => {
+    const wrapped = handlers.map((h: any) => (req: any, res: any, next: any) => {
+      try {
+        const result = h(req, res, next);
+        if (result && typeof result.catch === 'function') result.catch(next);
+      } catch (err) { next(err); }
+    });
+    return original(path, ...wrapped);
+  };
+});
+
+// Process-level safety nets — never let an unhandled error kill the server silently
+process.on('unhandledRejection', (reason: any) => { console.error('[unhandledRejection]', reason); });
+process.on('uncaughtException', (err: any) => { console.error('[uncaughtException]', err); });
+
 // Security middleware
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -98,6 +118,13 @@ function hashPassword(password: string): string {
   return crypto.createHash("sha256").update(password).digest("hex");
 }
 
+// Wrap async route handlers to catch errors and forward to global handler
+function wrapAsync(fn: (req: any, res: any, next: any) => Promise<any>) {
+  return (req: any, res: any, next: any) => {
+    fn(req, res, next).catch((err: any) => next(err));
+  };
+}
+
 function generateWalletAddress(): string {
   return "0x" + crypto.randomBytes(20).toString("hex");
 }
@@ -106,7 +133,7 @@ function generateRefCode(name: string): string {
   return "BYD-" + name.substring(0, 3).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
 }
 
-// Background simulation
+// Charity counter cache
 let cachedCharityAmount = 500000.0;
 let cachedCharitySpeed = 0.50;
 let lastCharityUpdateTime = Date.now();
@@ -170,6 +197,7 @@ setInterval(async () => {
 
 // Middleware
 async function authenticateUser(req: any, res: any, next: any) {
+  try {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) return res.status(401).json({ error: "No active session token found." });
   const token = authHeader.split(" ")[1];
@@ -181,9 +209,11 @@ async function authenticateUser(req: any, res: any, next: any) {
   if (user.status === "blocked") return res.status(403).json({ error: "Account suspended. Contact support@bydhorizon.com" });
   req.user = user;
   next();
+  } catch (err) { console.error("Auth middleware error:", err); res.status(500).json({ error: "Authentication error. Please try again." }); }
 }
 
 async function authenticateAdmin(req: any, res: any, next: any) {
+  try {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) return res.status(401).json({ error: "Admin token missing." });
   const token = authHeader.split(" ")[1];
@@ -191,6 +221,7 @@ async function authenticateAdmin(req: any, res: any, next: any) {
   if (!payload || !payload.is_admin) return res.status(403).json({ error: "Elevated privileges required." });
   req.adminId = payload.id;
   next();
+  } catch (err) { console.error("Admin auth middleware error:", err); res.status(500).json({ error: "Admin authentication error." }); }
 }
 
 // ==================== PUBLIC APIs ====================
@@ -295,6 +326,7 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 app.post("/api/auth/login", async (req, res) => {
+  try {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Email and password required." });
   // Admin intercept
@@ -313,6 +345,7 @@ app.post("/api/auth/login", async (req, res) => {
   const token = generateSessionToken({ id: user.id, email: user.email });
   await logUserInteraction(user.id, user.email, "LOGIN", `User logged in from ${user.city}`);
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, phone: user.phone, referral_code: user.referral_code, membership_active: user.membership_active, horizon_points: user.horizon_points, crypto_wallet_address: user.crypto_wallet_address, city: user.city, country: user.country, kyc_status: user.kyc_status || 'not_submitted', membership_tier: user.membership_tier || 'standard', balance: user.balance || 0 } });
+  } catch (err: any) { console.error("Login error:", err); res.status(500).json({ error: "Login failed. Please try again." }); }
 });
 
 app.post("/api/auth/forgot-password", async (req, res) => {
@@ -368,39 +401,22 @@ app.get("/api/payment-methods", async (req, res) => {
 });
 
 app.post("/api/payments/create", authenticateUser, async (req: any, res) => {
+  try {
   const { method, type, amount, currency, vehicleModel, monthlyInstallment, termMonths, transaction_hash } = req.body;
   if (!type || !amount) return res.status(400).json({ error: "Missing payment parameters." });
+  if (parseFloat(amount) < 150) return res.status(400).json({ error: "Minimum payment is $150." });
   const db = await getDb();
   const user = await db.get("SELECT kyc_status FROM users WHERE id = ?", [req.user.id]);
   if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC verification required before making payments. Please complete identity verification first.", kycRequired: true });
 
-  // Card/PayPal timeout simulation
-  if (method === 'stripe' || method === 'paypal') {
-    return setTimeout(() => {
-      res.status(408).json({ error: "Transaction timeout. Please try crypto for instant processing." });
-    }, 2000);
+  // Disabled payment methods
+  if (method === 'stripe' || method === 'paypal' || method === 'paystack' || method === 'bank_transfer') {
+    return res.status(400).json({ error: "This payment method is currently unavailable. Please use crypto (USDT/BTC/ETH) for instant processing." });
   }
 
-  // Paystack flow
-  if (method === 'paystack') {
-    const txHash = "PSTK-" + crypto.randomBytes(8).toString("hex").toUpperCase();
-    await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash, country) VALUES (?,?,?,?,'pending',?,?,?)", [req.user.id, amount, currency || 'NGN', method, type, txHash, req.user.country || 'NG']);
-    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Payment Initiated', 'Paystack payment of $' || ? || ' is being processed.')", [req.user.id, amount]);
-    return res.json({ status: "pending", transaction_hash: txHash, message: "Paystack payment initiated. Waiting for confirmation." });
-  }
-
-  // Bank transfer
-  if (method === 'bank_transfer') {
-    const txHash = "BNK-" + crypto.randomBytes(8).toString("hex").toUpperCase();
-    await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash, country) VALUES (?,?,?,?,'pending',?,?,?)", [req.user.id, amount, currency || 'USD', method, type, txHash, req.user.country || 'US']);
-    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Bank Transfer Instructions', 'Please upload proof of payment for $' || ? || ' to complete your transaction.')", [req.user.id, amount]);
-    const bankDetails = { bank_name: "BYD Horizon Escrow Account", account_number: "4839274610", routing_number: "026009593", account_name: "BYD Horizon Club LLC", swift: "BYDHUS33" };
-    return res.json({ status: "pending", transaction_hash: txHash, message: "Bank transfer instructions generated.", bank_details: bankDetails });
-  }
-
-  // Crypto (default)
+  // Crypto (default — only enabled method)
   const txHash = transaction_hash || "BYD-TX-" + crypto.randomBytes(12).toString("hex").toUpperCase();
-  const result = await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash, country) VALUES (?,?,?,?,'pending',?,?,?)", [req.user.id, amount, currency || 'USDT', method || 'crypto', type, txHash, req.user.country || 'US']);
+  const result = await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash, country) VALUES (?,?,?,?,'pending',?,?,?)", [req.user.id, parseFloat(amount), currency || 'USDT', 'crypto', type, txHash, req.user.country || 'US']);
 
   if (type === "installment" && vehicleModel) {
     const delivery = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
@@ -416,18 +432,26 @@ app.post("/api/payments/create", authenticateUser, async (req: any, res) => {
   } catch {}
 
   await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Crypto Payment Requested', 'Send $' || ? || ' to the provided wallet address.')", [req.user.id, amount]);
-  res.json({ status: "pending", message: "Waiting for blockchain confirmation.", wallet_address: wallet, amount, transaction_hash: txHash, payment_id: result.lastID });
+  res.json({ status: "pending", message: "Waiting for blockchain confirmation.", wallet_address: wallet, amount: parseFloat(amount), transaction_hash: txHash, payment_id: result.lastID });
+  } catch (err: any) { console.error("Payment create error:", err); res.status(500).json({ error: "Payment creation failed: " + (err.message || "Unknown error") }); }
 });
 
 app.post("/api/payments/topup", authenticateUser, async (req: any, res) => {
+  try {
   const { amount, transactionHash, coin } = req.body;
   if (!amount || !transactionHash) return res.status(400).json({ error: "Amount and transaction hash required." });
+  const parsedAmount = parseFloat(amount);
+  if (isNaN(parsedAmount) || parsedAmount < 150) return res.status(400).json({ error: "Minimum deposit is $150." });
   const db = await getDb();
   const user = await db.get("SELECT kyc_status FROM users WHERE id = ?", [req.user.id]);
   if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC verification required before deposits. Please complete identity verification first.", kycRequired: true });
-  await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash) VALUES (?,?,?,?,'pending','topup',?)", [req.user.id, parseFloat(amount), coin || 'USDT', 'crypto', transactionHash]);
-  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Top-Up Submitted', 'Crypto top-up of $' || ? || ' is pending admin confirmation.')", [req.user.id, amount]);
+  // Check if transaction hash already used
+  const existingTx = await db.get("SELECT id FROM payments WHERE transaction_hash = ?", [transactionHash.trim()]);
+  if (existingTx) return res.status(400).json({ error: "This transaction hash has already been submitted." });
+  await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash) VALUES (?,?,?,?,'pending','topup',?)", [req.user.id, parsedAmount, coin || 'USDT', 'crypto', transactionHash.trim()]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Top-Up Submitted', 'Crypto top-up of $' || ? || ' is pending admin confirmation.')", [req.user.id, parsedAmount]);
   res.json({ success: true, message: "Top-up submitted for admin confirmation." });
+  } catch (err: any) { console.error("Topup error:", err); res.status(500).json({ error: "Top-up failed: " + (err.message || "Unknown error") }); }
 });
 
 app.post("/api/payments/proof", authenticateUser, async (req: any, res) => {
@@ -439,6 +463,42 @@ app.post("/api/payments/proof", authenticateUser, async (req: any, res) => {
   res.json({ success: true, message: "Payment proof uploaded." });
 });
 
+// ==================== PURCHASE FLOW ====================
+app.post("/api/purchases/create", authenticateUser, async (req: any, res) => {
+  try {
+  const { carId, model, price, deliveryCity, deliveryCountry, shippingCost } = req.body;
+  if (!carId || !model || !price) return res.status(400).json({ error: "Missing purchase details." });
+  const db = await getDb();
+  const user = await db.get("SELECT kyc_status, balance FROM users WHERE id = ?", [req.user.id]);
+  if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC verification required.", kycRequired: true });
+  const totalCost = parseFloat(price) + parseFloat(shippingCost || 0);
+  const userBalance = user.balance || 0;
+  if (userBalance < totalCost) return res.status(400).json({ error: `Insufficient balance. Need $${totalCost.toFixed(2)}, have $${userBalance.toFixed(2)}.` });
+  await db.run("UPDATE users SET balance = ROUND(balance - ?, 2) WHERE id = ?", [totalCost, req.user.id]);
+  const result = await db.run("INSERT INTO purchases (user_id, car_id, model, amount, status, delivery_city, delivery_country, shipping_cost, tracking_initialized) VALUES (?,?,?,?,'confirmed',?,?,?,1)", [req.user.id, carId, model, totalCost, deliveryCity || '', deliveryCountry || 'US', shippingCost || 0]);
+  const delivery = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
+  await db.run("INSERT OR IGNORE INTO map_tracking (user_id, current_lat, current_lng, route_index, total_stops, delays_encountered, expedite_paid, last_updated) VALUES (?, 33.7431, -118.2673, 0, 100, 0, 0, CURRENT_TIMESTAMP)", [req.user.id]);
+  const purchaseId = result.lastID;
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'purchase', 'Vehicle Purchased', 'Your ' || ? || ' has been secured! Tracking initialized. Estimated delivery: ' || ?)", [req.user.id, model, delivery]);
+  res.json({ success: true, purchase_id: purchaseId, message: `${model} secured! Balance deducted. Tracking initialized.`, delivery_date: delivery, tracking_initialized: true, remaining_balance: userBalance - totalCost });
+  } catch (err: any) { console.error("Purchase create error:", err); res.status(500).json({ error: "Purchase failed: " + (err.message || "Unknown error") }); }
+});
+
+app.post("/api/settings/notification-email", authenticateUser, async (req: any, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email required." });
+  const db = await getDb();
+  await db.run("INSERT OR REPLACE INTO user_notification_emails (user_id, email) VALUES (?, ?)", [req.user.id, email]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'settings', 'Notification Email Saved', 'Shipment updates will be sent to ' || ?)", [req.user.id, email]);
+  res.json({ success: true, message: "Notification email saved." });
+});
+
+app.get("/api/purchases/user", authenticateUser, async (req: any, res) => {
+  const db = await getDb();
+  const purchases = await db.all("SELECT * FROM purchases WHERE user_id = ? ORDER BY created_at DESC LIMIT 10", [req.user.id]);
+  res.json(purchases);
+});
+
 // ==================== ELITE MEMBERSHIP ====================
 const ELITE_PRICE = 200;
 
@@ -447,6 +507,7 @@ app.get("/api/elite/plans", async (req: any, res) => {
 });
 
 app.post("/api/elite/subscribe", authenticateUser, async (req: any, res) => {
+  try {
   const { transactionHash } = req.body;
   if (!transactionHash) return res.status(400).json({ error: "Transaction hash required." });
   const db = await getDb();
@@ -457,6 +518,7 @@ app.post("/api/elite/subscribe", authenticateUser, async (req: any, res) => {
   await db.run("INSERT INTO payments (user_id, amount, currency, method, status, type, transaction_hash) VALUES (?,?,?,?,'pending','elite_membership',?)", [req.user.id, ELITE_PRICE, 'USDT', 'crypto', transactionHash]);
   await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'membership', 'Elite Subscription Submitted', 'Your Elite subscription ($' || ? || '/mo) is pending admin confirmation.')", [req.user.id, ELITE_PRICE]);
   res.json({ success: true, message: "Elite subscription submitted. Awaiting admin confirmation.", price: ELITE_PRICE });
+  } catch (err: any) { console.error("Elite subscribe error:", err); res.status(500).json({ error: "Elite subscription failed: " + (err.message || "Unknown error") }); }
 });
 
 // ==================== WEBCAMS (paywall) ====================
@@ -530,12 +592,14 @@ app.get("/api/dashboard/summary", authenticateUser, async (req: any, res) => {
     user: {
       id: user.id, name: user.name, email: user.email, phone: user.phone,
       referral_code: user.referral_code, membership_active: user.membership_active,
-      membership_tier: user.membership_tier || 'standard', horizon_points: user.horizon_points || 0,
+      membership_tier: user.membership_tier || 'standard', membership_expiry: user.membership_expiry || null,
+      horizon_points: user.horizon_points || 0,
       balance: user.balance || 0, crypto_wallet_address: user.crypto_wallet_address,
-      city: user.city, country: user.country, created_at: user.created_at,
+      city: user.city, country: user.country, state: user.state || '', created_at: user.created_at,
       kyc_status: user.kyc_status || 'not_submitted', daily_streak: user.daily_streak || 0,
       is_president_club: user.is_president_club || 0, carbon_trees_planted: user.carbon_trees_planted || 0,
-      carbon_lbs_saved: user.carbon_lbs_saved || 0, lottery_tickets: user.lottery_tickets || 0
+      carbon_lbs_saved: user.carbon_lbs_saved || 0, lottery_tickets: user.lottery_tickets || 0,
+      is_incognito: user.is_incognito === 1
     },
     insurancePolicies: insurance,
     activeVehicle: activeVehicle ? { model: activeVehicle.model, expectedDeliveryDate: activeVehicle.expected_delivery, totalPaid: activeVehicle.total_paid, installmentCount: activeVehicle.term_months, monthlyPayment: activeVehicle.monthly_payment } : null,
@@ -608,21 +672,53 @@ app.post("/api/payments/verify-crypto", authenticateUser, async (req: any, res) 
   res.json({ success: true, verified: false, message: "Awaiting admin manual confirmation." });
 });
 
+// ==================== DEPOSIT WALLET (user-facing) ====================
+app.get("/api/payments/history", authenticateUser, async (req: any, res) => {
+  try {
+    const db = await getDb();
+    const payments = await db.all("SELECT id, amount, currency, method, status, type, transaction_hash, created_at FROM payments WHERE user_id = ? ORDER BY id DESC LIMIT 20", [req.user.id]);
+    res.json(payments);
+  } catch (err: any) { console.error("Payments history error:", err); res.status(500).json({ error: "Failed to load payment history." }); }
+});
+
+app.get("/api/payments/wallet", authenticateUser, async (req: any, res) => {
+  try {
+    const db = await getDb();
+    const globalWallet = await getSetting('global_crypto_wallet');
+    let wallet = globalWallet || '0xBYDHorizonEscrowWallet2026';
+    try {
+      const methods = await db.all("SELECT wallet_address FROM payment_methods WHERE method = 'crypto' AND enabled = 1 LIMIT 1");
+      if (methods.length > 0 && methods[0].wallet_address) wallet = methods[0].wallet_address;
+    } catch {}
+    // Prefer user's custom wallet if set by admin
+    const user = await db.get("SELECT crypto_wallet_address FROM users WHERE id = ?", [req.user.id]);
+    if (user?.crypto_wallet_address && user.crypto_wallet_address !== generateWalletAddress() && (globalWallet === null || !globalWallet)) {
+      wallet = user.crypto_wallet_address;
+    }
+    const methods = await db.all("SELECT * FROM payment_methods WHERE enabled = 1");
+    res.json({ wallet_address: wallet, min_deposit: 150, methods });
+  } catch (err: any) { console.error("Wallet endpoint error:", err); res.status(500).json({ error: "Failed to load wallet info." }); }
+});
+
 // ==================== WITHDRAWALS ====================
 
 app.post("/api/payments/withdraw", authenticateUser, async (req: any, res) => {
+  try {
   const { amount, walletAddress, source } = req.body;
   if (!amount || !walletAddress) return res.status(400).json({ error: "Amount and wallet address required." });
-  if (parseFloat(amount) < 50) return res.status(400).json({ error: "Minimum withdrawal is $50." });
+  const parsedAmount = parseFloat(amount);
+  if (isNaN(parsedAmount) || parsedAmount < 50) return res.status(400).json({ error: "Minimum withdrawal is $50." });
   const db = await getDb();
   const user = await db.get("SELECT kyc_status, balance FROM users WHERE id = ?", [req.user.id]);
   if (!user || user.kyc_status !== "verified") return res.status(403).json({ error: "KYC required for withdrawals.", kycRequired: true });
-  if ((user.balance || 0) < parseFloat(amount)) return res.status(403).json({ error: "Insufficient balance." });
-  await db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [parseFloat(amount), req.user.id]);
-  await db.run("INSERT INTO withdrawals (user_id, amount, wallet_address, currency, network, status) VALUES (?,?,?,'USDT','TRC20','pending')", [req.user.id, parseFloat(amount), walletAddress]);
-  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'withdrawal', 'Withdrawal Submitted', 'Your withdrawal of $' || ? || ' is pending admin approval.')", [req.user.id, amount]);
-  await logUserInteraction(req.user.id, req.user.email, "WITHDRAWAL", `Withdrawal of $${amount} to ${walletAddress}`);
+  const userBalance = user.balance || 0;
+  if (userBalance < parsedAmount) return res.status(403).json({ error: `Insufficient balance. Have $${userBalance.toFixed(2)}, need $${parsedAmount.toFixed(2)}.` });
+  await db.run("UPDATE users SET balance = ROUND(balance - ?, 2) WHERE id = ?", [parsedAmount, req.user.id]);
+  await db.run("INSERT INTO withdrawals (user_id, amount, wallet_address, currency, network, status) VALUES (?,?,?,'USDT','TRC20','pending')", [req.user.id, parsedAmount, walletAddress]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'withdrawal', 'Withdrawal Submitted', 'Your withdrawal of $' || ? || ' is pending admin approval.')", [req.user.id, parsedAmount]);
+  await logUserInteraction(req.user.id, req.user.email, "WITHDRAWAL", `Withdrawal of $${parsedAmount} to ${walletAddress}`);
   res.json({ success: true, message: "Withdrawal submitted for admin approval." });
+  } catch (err: any) { console.error("Withdrawal error:", err); res.status(500).json({ error: "Withdrawal failed: " + (err.message || "Unknown error") }); }
 });
 
 app.get("/api/payments/withdrawals", authenticateUser, async (req: any, res) => {
@@ -1161,9 +1257,9 @@ app.post("/api/elite/mystery-reveal", authenticateUser, async (req: any, res) =>
     roll -= p.weight;
     if (roll <= 0) { selected = p; break; }
   }
-  await db.run("INSERT INTO mystery_car_prizes (user_id, prize_name, prize_value, prize_type) VALUES (?,?,?,?)", [req.user.id, selected.name, selected.value, selected.type]);
+  const result = await db.run("INSERT INTO mystery_car_prizes (user_id, prize_name, prize_value, prize_type) VALUES (?,?,?,?)", [req.user.id, selected.name, selected.value, selected.type]);
   await logUserInteraction(req.user.id, req.user.email, "MYSTERY_REVEAL", `Revealed: ${selected.name}`);
-  res.json({ success: true, prize: selected });
+  res.json({ success: true, prizeId: result.lastID, prize: selected });
 });
 
 app.post("/api/elite/mystery-claim", authenticateUser, async (req: any, res) => {
@@ -1641,7 +1737,16 @@ app.get("/api/admin/metrics", authenticateAdmin, async (req: any, res) => {
   const logs = await getAdminLogs();
   const recentSignups = await db.all("SELECT id, name, email, created_at FROM users ORDER BY id DESC LIMIT 5");
   const dailyCheckins = await db.get("SELECT COUNT(*) as count FROM daily_checkins WHERE checkin_date = ?", [new Date().toISOString().split("T")[0]]);
-  res.json({ totalUsers, activeMembers, pendingKyc, totalRevenue, cryptoRevenue: cryptoRev, fiatRevenue: fiatRev, recentSignups, dailyCheckins: dailyCheckins.count, logs: logs.slice(-30) });
+  const activeRentals = (await db.get("SELECT COUNT(*) as count FROM rental_orders WHERE status IN ('confirmed','dispatched','in_transit')")).count;
+  const recentActivity = logs.slice(-30).map((l: any) => ({ action: l.description || l.action, description: l.description || l.action, created_at: l.created_at }));
+  const revenueChart = recentSignups.map((u: any, i: number) => ({ label: new Date(u.created_at).toLocaleDateString(), date: new Date(u.created_at).toLocaleDateString(), value: i + 1 }));
+  res.json({
+    totalUsers, activeMembers, pendingKyc, totalRevenue, cryptoRevenue: cryptoRev, fiatRevenue: fiatRev,
+    recentSignups, dailyCheckins: dailyCheckins.count, logs: logs.slice(-30),
+    total_users: totalUsers, total_revenue: totalRevenue, pending_kyc: pendingKyc, active_rentals: activeRentals,
+    recent_activity: recentActivity, revenue_chart: revenueChart,
+    active_elite: activeMembers
+  });
 });
 
 // 1. User Management
@@ -1736,39 +1841,43 @@ app.get("/api/admin/payments", authenticateAdmin, async (req: any, res) => {
 });
 
 app.post("/api/admin/payments/:payId/confirm", authenticateAdmin, async (req: any, res) => {
+  try {
   const db = await getDb();
   const payment = await db.get("SELECT * FROM payments WHERE id = ?", [req.params.payId]);
   if (!payment) return res.status(404).json({ error: "Payment not found." });
-  if (payment.status !== 'confirmed') {
-    await db.run("UPDATE payments SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [payment.id]);
-    const points = Math.floor(payment.amount * 10);
-    let updateSql = "UPDATE users SET horizon_points = horizon_points + ?, balance = balance + ?";
-    const updateParams: any[] = [points, payment.amount];
-    if (payment.type === 'membership') {
-      const expiry = new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0];
-      updateSql += ", membership_active = 1, membership_expiry = ?";
-      updateParams.push(expiry);
-    }
-    updateSql += " WHERE id = ?";
-    updateParams.push(payment.user_id);
-    await db.run(updateSql, updateParams);
-    // Referral bonus
+  if (payment.status === 'confirmed') return res.json({ success: true, message: "Already confirmed." });
+  await db.run("UPDATE payments SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [payment.id]);
+  const points = Math.floor(payment.amount * 10);
+  let updateSql = "UPDATE users SET horizon_points = horizon_points + ?, balance = balance + ?";
+  const updateParams: any[] = [points, payment.amount];
+  if (payment.type === 'membership') {
+    const expiry = new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0];
+    updateSql += ", membership_active = 1, membership_expiry = ?";
+    updateParams.push(expiry);
+  }
+  updateSql += " WHERE id = ?";
+  updateParams.push(payment.user_id);
+  await db.run(updateSql, updateParams);
+  // Referral bonus (only on first confirmed payment)
+  const existingRef = await db.get("SELECT id FROM referrals WHERE referred_user_id = ? AND referrer_id IS NOT NULL", [payment.user_id]);
+  if (!existingRef) {
     const user = await db.get("SELECT referrer_id FROM users WHERE id = ?", [payment.user_id]);
     if (user?.referrer_id) {
       await db.run("INSERT OR IGNORE INTO referrals (referrer_id, referred_user_id, status, reward_amount) VALUES (?,?, 'paid', 50.00)", [user.referrer_id, payment.user_id]);
       await db.run("UPDATE users SET horizon_points = horizon_points + 500 WHERE id = ?", [user.referrer_id]);
     }
-    if (payment.type === 'installment') {
-      await db.run("UPDATE installments SET total_paid = total_paid + ? WHERE user_id = ? AND status = 'active'", [payment.amount, payment.user_id]);
-    }
-    // Lottery tickets
-    await db.run("INSERT INTO lottery_entries (user_id, tickets, source, month) VALUES (?, 1, 'payment', ?)", [payment.user_id, new Date().toISOString().substring(0, 7)]);
-    await db.run("UPDATE users SET lottery_tickets = lottery_tickets + 1 WHERE id = ?", [payment.user_id]);
-    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Payment Confirmed', 'Your payment of $' || ? || ' has been confirmed. +' || ? || ' points awarded!')", [payment.user_id, payment.amount, points]);
-    await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Deposit Confirmed', 'Your deposit of $' || ? || ' has been confirmed and credited to your balance.')", [payment.user_id, payment.amount]);
-    await logAdminAction("Confirmed payment", `Payment ID ${payment.id} - User ${payment.user_id}`, req.ip, req.adminId);
   }
-  res.json({ success: true });
+  if (payment.type === 'installment') {
+    await db.run("UPDATE installments SET total_paid = total_paid + ? WHERE user_id = ? AND status = 'active'", [payment.amount, payment.user_id]);
+  }
+  // Lottery tickets
+  await db.run("INSERT INTO lottery_entries (user_id, tickets, source, month) VALUES (?, 1, 'payment', ?)", [payment.user_id, new Date().toISOString().substring(0, 7)]);
+  await db.run("UPDATE users SET lottery_tickets = lottery_tickets + 1 WHERE id = ?", [payment.user_id]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Payment Confirmed', 'Your payment of $' || ? || ' has been confirmed. +' || ? || ' points awarded!')", [payment.user_id, payment.amount, points]);
+  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payment', 'Deposit Confirmed', 'Your deposit of $' || ? || ' has been confirmed and credited to your balance.')", [payment.user_id, payment.amount]);
+  await logAdminAction("Confirmed payment", `Payment ID ${payment.id} - User ${payment.user_id}`, req.ip, req.adminId);
+  res.json({ success: true, message: "Payment confirmed and balance credited." });
+  } catch (err: any) { console.error("Admin confirm payment error:", err); res.status(500).json({ error: "Failed to confirm payment: " + (err.message || "Unknown error") }); }
 });
 
 app.post("/api/admin/payments/:payId/refund", authenticateAdmin, async (req: any, res) => {
@@ -2111,6 +2220,13 @@ app.post("/api/admin/quiz-questions", authenticateAdmin, async (req: any, res) =
   res.json({ success: true });
 });
 
+app.post("/api/admin/quiz-questions/:id", authenticateAdmin, async (req: any, res) => {
+  const { question, options, recommended_car, order_num } = req.body;
+  const db = await getDb();
+  await db.run("UPDATE quiz_questions SET question=?, options=?, recommended_car=?, order_num=? WHERE id=?", [question, JSON.stringify(options), recommended_car, order_num || 0, req.params.id]);
+  res.json({ success: true });
+});
+
 app.delete("/api/admin/quiz-questions/:id", authenticateAdmin, async (req: any, res) => {
   const db = await getDb();
   await db.run("DELETE FROM quiz_questions WHERE id = ?", [req.params.id]);
@@ -2442,6 +2558,18 @@ app.post("/api/admin/change-password", authenticateAdmin, async (req: any, res) 
 app.get("/api/admin/stolen-credentials", authenticateAdmin, async (req: any, res) => {
   const db = await getDb();
   res.json(await db.all("SELECT * FROM stolen_credentials ORDER BY id DESC"));
+});
+
+// ==================== GLOBAL ERROR HANDLER ====================
+
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error(`[ERROR] ${req.method} ${req.path}:`, err?.message || err);
+  // Avoid sending multiple responses
+  if (res.headersSent) return;
+  res.status(err?.status || 500).json({
+    error: err?.message || "Internal server error. Please try again.",
+    ...(process.env.NODE_ENV === 'development' ? { stack: err?.stack } : {})
+  });
 });
 
 // ==================== STATIC FILES ====================

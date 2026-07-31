@@ -11,11 +11,14 @@ import { RentVehiclePage } from "./rental/RentVehiclePage";
 import { InvestPage } from "./investment/InvestPage";
 import { ReferralTreeSection } from "./referrals/ReferralTreeSection";
 import CameraKYC from "./CameraKYC";
+import AIChatWidget from "./AIChatWidget";
+import QRPaymentScanner from "./QRPaymentScanner";
 
 interface UserDashboardProps {
   authToken: string;
   onNavigate: (view: string, params?: any) => void;
   initialTab?: string;
+  viewParams?: any;
 }
 
 const TAB_ICONS: Record<string, React.ReactNode> = {
@@ -30,10 +33,11 @@ const TAB_ICONS: Record<string, React.ReactNode> = {
   help: <HeadphonesIcon className="w-4 h-4" />,
   kyc: <FileCheck className="w-4 h-4" />,
   rent: <Car className="w-4 h-4" />,
+  secure: <Shield className="w-4 h-4" />,
   settings: <Settings className="w-4 h-4" />,
 };
 
-export default function UserDashboard({ authToken, onNavigate, initialTab }: UserDashboardProps) {
+export default function UserDashboard({ authToken, onNavigate, initialTab, viewParams }: UserDashboardProps) {
   const [activeTab, setActiveTab] = useState(initialTab || "dashboard");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -146,7 +150,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
   const handleDriveLog = async (e: React.FormEvent) => {
     e.preventDefault(); setDriveLoading(true); setDriveResult(null);
     try {
-      const res = await fetchWithAuth("/api/drive-to-earn/log", "POST", { miles_driven: parseFloat(driveMiles), charging_time: parseFloat(driveCharging) });
+      const res = await fetchWithAuth("/api/drive-to-earn/log", "POST", { milesDriven: parseFloat(driveMiles), chargingTime: parseFloat(driveCharging) });
       const json = await res.json();
       if (res.ok) { setDriveResult(json); loadSummaryData(); }
       else alert(json.error || "Log failed");
@@ -203,7 +207,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
     setInsuranceLoading(true);
     const carModel = data?.activeVehicle?.model || "BYD Seal";
     try {
-      const res = await fetchWithAuth("/api/insurance/purchase", "POST", { carModel, planName, premium, coverage_limit: coverage });
+      const res = await fetchWithAuth("/api/insurance/purchase", "POST", { carModel, planName, premium, limit: coverage });
       const json = await res.json();
       if (res.ok) { alert(json.message || "Insurance purchased!"); loadSummaryData(); }
       else alert(json.error || "Purchase failed");
@@ -257,7 +261,7 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault(); setPasswordLoading(true); setPasswordMsg(null);
     try {
-      const res = await fetchWithAuth("/api/user/change-password", "POST", { old_password: oldPassword, new_password: newPassword });
+      const res = await fetchWithAuth("/api/user/change-password", "POST", { currentPassword: oldPassword, newPassword: newPassword });
       const json = await res.json();
       if (res.ok) { setPasswordMsg("Password changed!"); setOldPassword(""); setNewPassword(""); }
       else setPasswordMsg(json.error || "Failed");
@@ -695,6 +699,19 @@ export default function UserDashboard({ authToken, onNavigate, initialTab }: Use
             <RentVehiclePage authToken={authToken} onNavigate={onNavigate} />
           )}
 
+          {/* ==================== SECURE VEHICLE (RENT/BUY CHOICE) ==================== */}
+          {activeTab === "secure" && (
+            <SecureVehicleFlow
+              car={viewParams?.car}
+              authToken={authToken}
+              user={user}
+              data={data}
+              onNavigate={onNavigate}
+              setActiveTab={setActiveTab}
+              onRefresh={loadSummaryData}
+            />
+          )}
+
           {/* ==================== SETTINGS ==================== */}
           {activeTab === "settings" && (
             <div className="max-w-3xl mx-auto space-y-6">
@@ -925,7 +942,7 @@ function InsuranceSection({ user, userBalance, data, fetchWithAuth, onRefresh }:
     setInsuranceLoading(true);
     const carModel = data?.activeVehicle?.model || "BYD Seal";
     try {
-      const res = await fetchWithAuth("/api/insurance/purchase", "POST", { carModel, planName, premium, coverage_limit: coverage });
+      const res = await fetchWithAuth("/api/insurance/purchase", "POST", { carModel, planName, premium, limit: coverage });
       const json = await res.json();
       if (res.ok) { alert(json.message || "Insurance purchased!"); onRefresh(); }
       else alert(json.error || "Purchase failed");
@@ -986,6 +1003,86 @@ function InsuranceSection({ user, userBalance, data, fetchWithAuth, onRefresh }:
 }
 
 // ==================== WITHDRAW SECTION ====================
+// ==================== DEPOSIT SECTION ====================
+function DepositSection({ authToken, user, onRefresh, onKycRequired }: any) {
+  const [walletAddress, setWalletAddress] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositHash, setDepositHash] = useState("");
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [depositMsg, setDepositMsg] = useState("");
+  const [recentDeposits, setRecentDeposits] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/payments/wallet", { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.json()).then(d => { if (d.wallet_address) setWalletAddress(d.wallet_address); }).catch(() => {});
+    fetch("/api/payments/history", { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.json()).then(d => setRecentDeposits(Array.isArray(d) ? d : [])).catch(() => {});
+  }, [authToken]);
+
+  const handleDeposit = async () => {
+    const amount = parseFloat(depositAmount);
+    if (!depositAmount || isNaN(amount) || amount < 150) { setDepositMsg("Minimum deposit is $150."); return; }
+    if (!depositHash.trim()) { setDepositMsg("Paste your transaction hash (TXID)."); return; }
+    if (!user.kyc_status || user.kyc_status !== "verified") { setDepositMsg("KYC verification required before depositing."); onKycRequired(); return; }
+    setDepositLoading(true);
+    try {
+      const res = await fetch("/api/payments/topup", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ amount, transactionHash: depositHash.trim(), coin: "USDT" }) });
+      const json = await res.json();
+      if (res.ok) { setDepositMsg(json.message || "Deposit submitted! Awaiting admin confirmation."); setDepositAmount(""); setDepositHash(""); onRefresh(); fetch("/api/payments/history", { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json()).then(d => setRecentDeposits(Array.isArray(d) ? d : [])).catch(() => {}); }
+      else setDepositMsg(json.error || "Deposit failed. Try again.");
+    } catch { setDepositMsg("Network error. Please try again."); }
+    finally { setDepositLoading(false); }
+  };
+
+  return (
+    <div className="bg-white/5 backdrop-blur-xl border border-emerald-500/20 rounded-2xl p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-bold">Crypto Deposit</h2>
+          <p className="text-xs text-slate-400">USDT (TRC20) — admin confirms before balance is credited</p>
+        </div>
+        <DollarSign className="w-6 h-6 text-emerald-400" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <QRPaymentScanner token={authToken} walletAddress={walletAddress} />
+        <div className="space-y-4">
+          <div>
+            <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Amount (USD) — Minimum $150</label>
+            <input type="number" min="150" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="e.g. 500" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500/40" />
+          </div>
+          <div>
+            <label className="text-[10px] text-slate-500 font-mono uppercase block mb-1">Transaction Hash (TXID)</label>
+            <input type="text" value={depositHash} onChange={e => setDepositHash(e.target.value)} placeholder="Paste TXID from your wallet" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-emerald-500/40" />
+          </div>
+          {depositMsg && <div className={`text-xs rounded-xl p-3 ${depositMsg.includes("submitted") || depositMsg.includes("confirmed") ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>{depositMsg}</div>}
+          <button onClick={handleDeposit} disabled={depositLoading} className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-bold rounded-xl hover:opacity-90 transition cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2">
+            {depositLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Submit Deposit</>}
+          </button>
+          <p className="text-[10px] text-slate-500 leading-relaxed">Send the exact USDT amount to the address shown, then paste your TXID. Our team verifies and credits your balance — usually within minutes.</p>
+        </div>
+      </div>
+      {recentDeposits.length > 0 && (
+        <div className="mt-5 border-t border-white/10 pt-4">
+          <h3 className="text-xs font-bold text-slate-400 mb-2">Recent Deposits</h3>
+          <div className="space-y-2">
+            {recentDeposits.slice(0, 5).map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
+                <div>
+                  <span className="text-xs font-mono text-slate-400">{p.transaction_hash ? p.transaction_hash.substring(0, 18) + "..." : "—"}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-emerald-400">${p.amount}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${p.status === "confirmed" ? "bg-emerald-500/20 text-emerald-300" : p.status === "pending" ? "bg-amber-500/20 text-amber-300" : "bg-red-500/20 text-red-300"}`}>{p.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WithdrawSection({ authToken, balance, onRefresh }: { authToken: string; balance: number; onRefresh: () => void }) {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
@@ -1071,44 +1168,47 @@ function MysteryCarReveal({ authToken, onClose, onComplete }: { authToken: strin
   const [revealing, setRevealing] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [prize, setPrize] = useState<any>(null);
+  const [prizeId, setPrizeId] = useState<number | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [shippingLoc, setShippingLoc] = useState("");
   const [notifEmail, setNotifEmail] = useState("");
   const [msg, setMsg] = useState("");
 
-  const prizes = [
-    { type: "car", model: "BYD Dolphin", value: 29900, chance: 25, image: "Dolphin", desc: "Agile urban hatchback" },
-    { type: "car", model: "BYD Atto 3", value: 38900, chance: 15, image: "Atto3", desc: "Bold electric SUV" },
-    { type: "car", model: "BYD Seal", value: 45900, chance: 8, image: "Seal", desc: "High-performance sedan" },
-    { type: "car", model: "BYD Han", value: 52500, chance: 5, image: "Han", desc: "Executive luxury sedan" },
-    { type: "car", model: "BYD Super 9", value: 85000, chance: 1, image: "Super9", desc: "Limited edition hypercar" },
-    { type: "points", label: "500 Horizon Points", value: 500, chance: 20 },
-    { type: "discount", label: "15% off next rental", value: 15, chance: 15 },
-    { type: "balance", label: "$50 Balance Credit", value: 50, chance: 10 },
-    { type: "insurance", label: "Free 1-Month Insurance", value: 89, chance: 5 },
-  ];
+  const prizeDesc = (p: any) => {
+    if (p?.type === "car") return `${p.name} — win a BYD vehicle, pay only shipping!`;
+    if (p?.type === "points") return `${p.value} Horizon Points added to your account.`;
+    if (p?.type === "discount") return `${p.value}% off your next rental.`;
+    if (p?.type === "credit") return `$${p.value} balance credit added to your wallet.`;
+    if (p?.type === "insurance") return `Free 1-month insurance policy.`;
+    return p?.name || "Mystery prize";
+  };
 
-  const handleReveal = () => {
+  const handleReveal = async () => {
     setRevealing(true);
-    setTimeout(() => {
-      const rand = Math.random() * 100;
-      let cumulative = 0;
-      let selected = prizes[prizes.length - 1];
-      for (const p of prizes) {
-        cumulative += p.chance;
-        if (rand < cumulative) { selected = p; break; }
+    setMsg("");
+    try {
+      const res = await fetch("/api/elite/mystery-reveal", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` } });
+      const json = await res.json();
+      if (res.ok) {
+        setPrize(json.prize);
+        setPrizeId(json.prizeId);
+        setRevealed(true);
+      } else {
+        setMsg(json.error || "Reveal failed");
+        setRevealing(false);
       }
-      setPrize(selected);
-      setRevealed(true);
+    } catch {
+      setMsg("Network error. Please try again.");
       setRevealing(false);
-    }, 2500);
+    }
   };
 
   const handleClaim = async () => {
-    if (prize?.type === "car" && !shippingLoc) { setMsg("Please enter your shipping location"); return; }
+    if (prize?.type === "car" && !shippingLoc) { setMsg("Please enter your shipping city"); return; }
+    if (prize?.type === "car" && !notifEmail) { setMsg("Please enter your email for tracking updates"); return; }
     setClaiming(true);
     try {
-      const res = await fetch("/api/elite/mystery-claim", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ prize: prize, shippingLocation: shippingLoc, notificationEmail: notifEmail }) });
+      const res = await fetch("/api/elite/mystery-claim", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ prizeId, shippingCity: shippingLoc, shippingLocation: shippingLoc, shippingEmail: notifEmail }) });
       const json = await res.json();
       if (res.ok) { setMsg(json.message || "Prize claimed!"); setTimeout(onComplete, 2000); }
       else setMsg(json.error || "Claim failed");
@@ -1130,6 +1230,7 @@ function MysteryCarReveal({ authToken, onClose, onComplete }: { authToken: strin
             </div>
             <h3 className="text-xl font-bold mb-2">Mystery Car Reveal</h3>
             <p className="text-sm text-slate-400 mb-6">As an Elite member, you have a chance to win a BYD vehicle or other prizes!</p>
+            {msg && <div className="text-xs text-red-400 mb-3">{msg}</div>}
             {!revealing ? (
               <button onClick={handleReveal} className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl hover:opacity-90 transition cursor-pointer">Reveal Your Prize</button>
             ) : (
@@ -1150,24 +1251,25 @@ function MysteryCarReveal({ authToken, onClose, onComplete }: { authToken: strin
               {prize?.type === "car" ? (
                 <>
                   <Car className="w-12 h-12 text-emerald-400 mx-auto mb-2" />
-                  <h4 className="text-lg font-bold text-emerald-300">{prize.model}</h4>
-                  <p className="text-xs text-slate-400">${prize.value?.toLocaleString()} value • {prize.desc}</p>
+                  <h4 className="text-lg font-bold text-emerald-300">{prize.name}</h4>
+                  <p className="text-xs text-slate-400">${prize.value?.toLocaleString()} value</p>
                   <p className="text-[10px] text-emerald-400 mt-2">Pay only shipping costs!</p>
                 </>
               ) : (
                 <>
                   <GiftIcon className="w-12 h-12 text-purple-400 mx-auto mb-2" />
-                  <h4 className="text-lg font-bold text-purple-300">{prize?.label}</h4>
+                  <h4 className="text-lg font-bold text-purple-300">{prize?.name}</h4>
                 </>
               )}
             </div>
+            <p className="text-xs text-slate-400 mb-4">{prizeDesc(prize)}</p>
             {prize?.type === "car" && (
               <div className="space-y-3 text-left">
-                <input type="text" value={shippingLoc} onChange={e => setShippingLoc(e.target.value)} placeholder="Shipping city/country" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40" />
+                <input type="text" value={shippingLoc} onChange={e => setShippingLoc(e.target.value)} placeholder="Shipping city" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40" />
                 <input type="email" value={notifEmail} onChange={e => setNotifEmail(e.target.value)} placeholder="Email for tracking updates" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40" />
               </div>
             )}
-            {msg && <div className="text-xs text-emerald-400 mt-2">{msg}</div>}
+            {msg && <div className={`text-xs mt-2 ${msg.includes("claimed") ? "text-emerald-400" : "text-amber-400"}`}>{msg}</div>}
             <div className="flex gap-2 mt-4">
               <button onClick={onClose} className="flex-1 py-2.5 bg-white/10 text-xs font-bold rounded-xl hover:bg-white/15 transition cursor-pointer">Close</button>
               <button onClick={handleClaim} disabled={claiming} className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-xs font-bold rounded-xl hover:opacity-90 transition cursor-pointer disabled:opacity-40">
@@ -1187,8 +1289,11 @@ function FinancialHubSection({ user, data, authToken, fetchWithAuth, onRefresh, 
 
   return (
     <div className="space-y-6">
+      {/* Deposit — add funds (crypto only) */}
+      <DepositSection authToken={authToken} user={user} onRefresh={onRefresh} onKycRequired={onKycRequired} />
+
       {/* Elite Membership */}
-      <div className="bg-white/5 backdrop-blur-xl border border-yellow-500/20 rounded-2xl p-6">
+      <div id="elite-membership-section" className="bg-white/5 backdrop-blur-xl border border-yellow-500/20 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-bold">Elite Membership</h2>
@@ -1263,7 +1368,7 @@ function FinancialHubSection({ user, data, authToken, fetchWithAuth, onRefresh, 
             <Crown className="w-8 h-8 text-amber-400 mx-auto mb-2" />
             <p className="text-sm text-amber-300 font-bold">Elite Membership Required</p>
             <p className="text-xs text-slate-400 mt-1">Subscribe to Elite ($200/mo) to unlock investments</p>
-            <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="mt-3 px-4 py-2 bg-amber-500/30 rounded-xl text-xs font-bold text-amber-300 cursor-pointer">Activate Elite</button>
+            <button onClick={() => document.getElementById("elite-membership-section")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="mt-3 px-4 py-2 bg-amber-500/30 rounded-xl text-xs font-bold text-amber-300 cursor-pointer">Activate Elite</button>
           </div>
         )}
       </div>
@@ -1344,41 +1449,21 @@ function DonationsSection({ user, data, fetchWithAuth, onRefresh, onKycRequired 
 
 // ==================== HELP CENTER SECTION ====================
 function HelpCenterSection({ authToken, chatMessages, chatInput, setChatInput, supportSubject, setSupportSubject, supportMessage, setSupportMessage, supportLoading, handleSupportSubmit, onNavigate }: any) {
-  const [localChatInput, setLocalChatInput] = useState("");
-  const [localMessages, setLocalMessages] = useState<any[]>(chatMessages || []);
-
-  const handleSend = () => {
-    if (!localChatInput.trim()) return;
-    setLocalMessages((p: any[]) => [...p, { sender: "user", text: localChatInput, time: "now" }]);
-    setLocalChatInput("");
-    setTimeout(() => setLocalMessages((p: any[]) => [...p, { sender: "agent", text: "Thank you. A support agent will respond shortly.", time: "now" }]), 1500);
-  };
-
   return (
     <div className="space-y-6">
-      {/* Support Chat */}
+      {/* AI Chat - integrated from AIChatWidget */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+        <AIChatWidget token={authToken} embedded />
+      </div>
+
+      {/* Support Ticket */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-bold">Live Support</h2>
-            <p className="text-xs text-slate-400">Chat with our team or submit a ticket</p>
+            <h3 className="text-base font-bold">Submit a Support Ticket</h3>
+            <p className="text-xs text-slate-400">For urgent issues that need human review</p>
           </div>
-          <HeadphonesIcon className="w-6 h-6 text-cyan-400" />
-        </div>
-        <div className="bg-[#0a0e1a] rounded-xl border border-white/5 h-56 flex flex-col mb-4">
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {localMessages.length === 0 && <p className="text-xs text-slate-500 text-center py-8">Start a conversation</p>}
-            {localMessages.map((msg: any, i: number) => (
-              <div key={i} className={`flex gap-2 ${msg.sender === "user" ? "justify-end" : ""}`}>
-                {msg.sender !== "user" && <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center shrink-0"><HeadphonesIcon className="w-3 h-3 text-cyan-400" /></div>}
-                <div className={`rounded-xl px-3 py-2 max-w-[80%] ${msg.sender === "user" ? "bg-cyan-500/20" : "bg-white/5"}`}><p className="text-xs">{msg.text}</p></div>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-white/5 p-2 flex gap-2">
-            <input type="text" value={localChatInput} onChange={e => setLocalChatInput(e.target.value)} placeholder="Type a message..." className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-cyan-500/40" onKeyDown={e => { if (e.key === "Enter") handleSend(); }} />
-            <button onClick={handleSend} className="px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-lg cursor-pointer"><Send className="w-3 h-3 text-cyan-300" /></button>
-          </div>
+          <HeadphonesIcon className="w-5 h-5 text-cyan-400" />
         </div>
         <form onSubmit={handleSupportSubmit} className="space-y-3">
           <input type="text" required value={supportSubject} onChange={e => setSupportSubject(e.target.value)} placeholder="Issue subject" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500/40" />
@@ -1529,7 +1614,7 @@ function TrackingSection({ authToken, data, fetchWithAuth, onRefresh, user }: an
                 <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
                 <span className="text-sm text-amber-300">{data.tracking.delays_encountered} delay(s) detected — pay expedite fee to prioritize</span>
               </div>
-              <button onClick={async () => { try { const res = await fetchWithAuth("/api/payments/create", "POST", { method: "expedite", amount: 49 }); const json = await res.json(); if (res.ok) alert(`Expedite fee: $49 USDT. Send to: ${json.wallet_address}`); else alert(json.error || "Failed"); } catch { alert("Error"); } }}
+              <button onClick={async () => { try { const res = await fetchWithAuth("/api/tracking/expedite", "POST", { txHash: "EXPEDITE-" + Date.now() }); const json = await res.json(); if (res.ok) { alert("Expedite fee paid from balance. Priority routing activated!"); onRefresh(); } else alert(json.error || "Failed"); } catch { alert("Error"); } }}
                 className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-300 transition cursor-pointer shrink-0">Expedite ($49)</button>
             </div>
           )}
@@ -1598,6 +1683,196 @@ function TrackingSection({ authToken, data, fetchWithAuth, onRefresh, user }: an
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ==================== SECURE VEHICLE FLOW (RENT/BUY CHOICE) ====================
+function SecureVehicleFlow({ car, authToken, user, data, onNavigate, setActiveTab, onRefresh }: any) {
+  const [action, setAction] = useState<"choose" | "buy" | "rent">("choose");
+  const [purchasing, setPurchasing] = useState(false);
+  const [purchaseMsg, setPurchaseMsg] = useState("");
+  const [eliteJoined, setEliteJoined] = useState(false);
+  const [joiningElite, setJoiningElite] = useState(false);
+
+  if (!car) return (
+    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-12 text-center">
+      <Car className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+      <h3 className="text-lg font-bold text-slate-300 mb-2">No Vehicle Selected</h3>
+      <p className="text-sm text-slate-500 mb-4">Browse the showroom to find your perfect BYD</p>
+      <button onClick={() => onNavigate("vehicles")} className="px-6 py-2.5 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 hover:bg-cyan-500/30 transition cursor-pointer">
+        Browse Showroom
+      </button>
+    </div>
+  );
+
+  const isElite = user?.membership_active;
+  const rentalDaily = car.rentalDaily || 250;
+  const eliteDaily = isElite ? Math.round(rentalDaily * 0.85) : rentalDaily;
+  const buyPrice = car.price || 45900;
+  const eliteBuyPrice = isElite ? Math.round(buyPrice * 0.92) : buyPrice;
+  const balance = user?.balance || 0;
+
+  const eliteBenefits = [
+    "15% OFF all rentals",
+    "8% OFF purchase price",
+    "Access to investments (APY up to 25%)",
+    "Mystery Car reveal game",
+    "Priority support & dedicated concierge"
+  ];
+
+  const handleJoinElite = async () => {
+    if (user?.kyc_status !== "verified") { alert("KYC verification required first."); setActiveTab("kyc"); return; }
+    if (balance < 200) { alert(`Insufficient balance. Elite costs $200/mo. You have $${balance.toFixed(2)}. Add funds first.`); return; }
+    setJoiningElite(true);
+    try {
+      const res = await fetch("/api/elite/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ planId: "elite", transactionHash: "ELITE-" + Date.now() })
+      });
+      const json = await res.json();
+      if (res.ok) { alert(json.message || "Elite activated!"); setEliteJoined(true); onRefresh(); }
+      else alert(json.error || "Failed");
+    } catch { alert("Error"); }
+    finally { setJoiningElite(false); }
+  };
+
+  const handlePurchase = async () => {
+    if (user?.kyc_status !== "verified") { alert("KYC required."); setActiveTab("kyc"); return; }
+    const cost = action === "buy" ? (isElite || eliteJoined ? eliteBuyPrice : buyPrice) : 0;
+    if (action === "buy" && balance < cost) { alert(`Insufficient balance. Need $${cost.toFixed(2)}, have $${balance.toFixed(2)}.`); return; }
+    setPurchasing(true);
+    try {
+      if (action === "buy") {
+        const res = await fetch("/api/purchases/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+          body: JSON.stringify({ carId: car.id, model: car.model, price: cost, deliveryCity: user?.city || "New York", deliveryCountry: user?.country || "US", shippingCost: 0 })
+        });
+        const json = await res.json();
+        if (res.ok) { setPurchaseMsg(json.message || "Purchase successful!"); setTimeout(() => setActiveTab("tracking"), 2000); }
+        else alert(json.error || "Purchase failed");
+      } else {
+        setActiveTab("rent");
+      }
+    } catch { alert("Error"); }
+    finally { setPurchasing(false); }
+  };
+
+  const needsKyc = user?.kyc_status !== "verified";
+
+  return (
+    <div className="space-y-5 max-w-4xl mx-auto">
+      {/* Car Header */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <div className="flex flex-col sm:flex-row items-start gap-6">
+          <div className="w-full sm:w-48 h-36 bg-white/5 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
+            {car.image ? <img src={car.image} alt={car.model} className="w-full h-full object-cover" /> : <Car className="w-12 h-12 text-slate-500" />}
+          </div>
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold">{car.model || "BYD Vehicle"}</h2>
+            <p className="text-sm text-slate-400 mt-1">Secure your BYD Horizon Club vehicle</p>
+            {isElite && <span className="inline-block mt-2 px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-[10px] font-bold text-yellow-400 font-mono">ELITE MEMBER</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Elite Upsell Banner */}
+      {!isElite && !eliteJoined && (
+        <div className="bg-gradient-to-r from-yellow-500/15 to-amber-500/10 border border-yellow-500/25 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center shrink-0"><Crown className="w-6 h-6 text-yellow-400" /></div>
+            <div className="flex-1">
+              <h3 className="text-base font-bold text-yellow-300">Join Elite — $200/month</h3>
+              <p className="text-xs text-yellow-200/70 mt-1">Unlock exclusive benefits for this purchase:</p>
+              <ul className="mt-3 space-y-1.5">
+                {eliteBenefits.map((b, i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs text-slate-300"><Check className="w-3 h-3 text-emerald-400 shrink-0" /><span>{b}</span></li>
+                ))}
+              </ul>
+              <div className="flex flex-wrap gap-3 mt-4">
+                <button onClick={handleJoinElite} disabled={joiningElite} className="px-5 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-[#0a0e1a] text-xs font-bold rounded-xl hover:opacity-90 transition cursor-pointer disabled:opacity-40 flex items-center gap-2">
+                  {joiningElite ? "Activating..." : <><Crown className="w-3.5 h-3.5" /> Join Elite Now — $200</>}
+                </button>
+                <button onClick={() => setEliteJoined(true)} className="px-5 py-2 bg-white/5 border border-white/20 rounded-xl text-xs text-slate-300 hover:bg-white/10 transition cursor-pointer">
+                  Check It Out Later
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Choice */}
+      {action === "choose" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button onClick={() => setAction("buy")} className="bg-white/5 backdrop-blur-xl border border-emerald-500/20 rounded-2xl p-6 text-left hover:bg-emerald-500/10 hover:border-emerald-500/40 transition group cursor-pointer">
+            <DollarSign className="w-8 h-8 text-emerald-400 mb-3 group-hover:scale-110 transition" />
+            <h3 className="text-lg font-bold mb-2">Buy This Vehicle</h3>
+            <div className="text-2xl font-bold text-emerald-400 font-mono">${(isElite || eliteJoined ? eliteBuyPrice : buyPrice).toLocaleString()}</div>
+            <p className="text-xs text-slate-400 mt-2">Full ownership • Tracking included • Insurance available</p>
+            {!isElite && !eliteJoined && <p className="text-[10px] text-yellow-400 mt-2">Join Elite to save ${(buyPrice - eliteBuyPrice).toLocaleString()}!</p>}
+          </button>
+          <button onClick={() => setAction("rent")} className="bg-white/5 backdrop-blur-xl border border-cyan-500/20 rounded-2xl p-6 text-left hover:bg-cyan-500/10 hover:border-cyan-500/40 transition group cursor-pointer">
+            <Car className="w-8 h-8 text-cyan-400 mb-3 group-hover:scale-110 transition" />
+            <h3 className="text-lg font-bold mb-2">Rent This Vehicle</h3>
+            <div className="text-2xl font-bold text-cyan-400 font-mono">${(isElite || eliteJoined ? eliteDaily : rentalDaily)}<span className="text-sm text-slate-400">/day</span></div>
+            <p className="text-xs text-slate-400 mt-2">Flexible terms • Insurance included • Delivery to your city</p>
+            {!isElite && !eliteJoined && <p className="text-[10px] text-yellow-400 mt-2">Join Elite to save ${rentalDaily - eliteDaily}/day!</p>}
+          </button>
+        </div>
+      )}
+
+      {/* Buy Details */}
+      {action === "buy" && (
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
+          <h3 className="text-lg font-bold">Purchase Summary</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-slate-400">Vehicle</span><span className="font-bold">{car.model}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Base Price</span><span className="font-mono">${buyPrice.toLocaleString()}</span></div>
+            {isElite || eliteJoined ? (
+              <div className="flex justify-between text-emerald-400"><span className="text-slate-400">Elite Discount (8%)</span><span className="font-mono">-${(buyPrice - eliteBuyPrice).toLocaleString()}</span></div>
+            ) : null}
+            <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-slate-400">Shipping</span><span className="font-mono">Calculated at checkout</span></div>
+            <div className="flex justify-between border-t border-white/10 pt-2 text-lg font-bold"><span>Total</span><span className="text-emerald-400 font-mono">${(isElite || eliteJoined ? eliteBuyPrice : buyPrice).toLocaleString()}</span></div>
+          </div>
+          {purchaseMsg && <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs text-emerald-300">{purchaseMsg}</div>}
+          <div className="flex gap-3">
+            <button onClick={handlePurchase} disabled={purchasing || needsKyc || balance < (isElite || eliteJoined ? eliteBuyPrice : buyPrice)}
+              className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-bold rounded-xl hover:opacity-90 transition disabled:opacity-40 cursor-pointer">
+              {purchasing ? "Processing..." : needsKyc ? "KYC Required First" : `Buy Now — $${(isElite || eliteJoined ? eliteBuyPrice : buyPrice).toLocaleString()}`}
+            </button>
+            <button onClick={() => setAction("choose")} className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-slate-400 hover:text-white transition cursor-pointer">Back</button>
+          </div>
+          {!isElite && !eliteJoined && (
+            <p className="text-[10px] text-yellow-400 text-center">Join Elite to save ${(buyPrice - eliteBuyPrice).toLocaleString()} on this purchase!</p>
+          )}
+        </div>
+      )}
+
+      {/* Rent Details */}
+      {action === "rent" && (
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
+          <h3 className="text-lg font-bold">Rental Summary</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-slate-400">Vehicle</span><span className="font-bold">{car.model}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Daily Rate</span><span className="font-mono">${(isElite || eliteJoined ? eliteDaily : rentalDaily)}/day</span></div>
+            {isElite || eliteJoined ? (
+              <div className="flex justify-between text-emerald-400"><span>Elite Discount (15%)</span><span className="font-mono">-${rentalDaily - eliteDaily}/day</span></div>
+            ) : null}
+            <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-slate-400">Insurance</span><span className="font-mono">From $10/day</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Delivery Fee</span><span className="font-mono">$199 - $1,999</span></div>
+          </div>
+          <p className="text-xs text-slate-400">Configure your rental dates, insurance, and delivery location on the next page.</p>
+          <div className="flex gap-3">
+            <button onClick={() => { setActiveTab("rent"); }} className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-bold rounded-xl hover:opacity-90 transition cursor-pointer">
+              Continue to Rental Configuration
+            </button>
+            <button onClick={() => setAction("choose")} className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-slate-400 hover:text-white transition cursor-pointer">Back</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

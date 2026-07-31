@@ -80,7 +80,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
   // Vehicles
   const [cars, setCars] = useState<any[]>([]);
   const [showCarForm, setShowCarForm] = useState(false);
-  const [carForm, setCarForm] = useState({ name: "", model: "", year: "", image: "", status: "Available", rental_price: "", description: "", type: "", range_km: "", seats: 5 });
+  const [carForm, setCarForm] = useState({ name: "", model: "", year: "", price: "", image: "", status: "Available", rental_price: "", description: "", type: "", range_km: "", seats: 5 });
   const [editingCar, setEditingCar] = useState<any>(null);
   const [carMsg, setCarMsg] = useState("");
   const [carErr, setCarErr] = useState("");
@@ -89,7 +89,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
   const [tracking, setTracking] = useState<any[]>([]);
   const [delays, setDelays] = useState<any[]>([]);
   const [trackingMsg, setTrackingMsg] = useState("");
-  const [delayForm, setDelayForm] = useState({ reason: "", duration_minutes: 60, affected_user_id: "" });
+  const [delayForm, setDelayForm] = useState({ name: "", duration_days: 1, trigger_after_km: 50, expedite_fee: 49 });
   const [editingDelay, setEditingDelay] = useState<any>(null);
   const [showDelayForm, setShowDelayForm] = useState(false);
 
@@ -442,13 +442,23 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
     setCarErr(""); setCarMsg("");
     try {
       const url = editingCar ? `/api/admin/cars/${editingCar.id}` : "/api/admin/cars";
-      const body = { ...carForm, rental_price_per_day: carForm.rental_price || 0 };
+      const body = {
+        model: carForm.model || carForm.name,
+        year: carForm.year || 2026,
+        price: parseFloat(carForm.price) || 0,
+        image_url: carForm.image,
+        category: carForm.type,
+        range_miles: parseFloat(carForm.range_km) || 0,
+        status: carForm.status,
+        rental_price_per_day: parseFloat(carForm.rental_price) || 0,
+        description: carForm.description,
+      };
       const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify(body) });
       const d = await res.json();
       if (res.ok) {
         showMsg(setCarMsg, editingCar ? "Car updated." : "Car added.");
         setShowCarForm(false); setEditingCar(null);
-        setCarForm({ name: "", model: "", year: "", image: "", status: "Available", rental_price: "", description: "", type: "", range_km: "", seats: 5 });
+        setCarForm({ name: "", model: "", year: "", price: "", image: "", status: "Available", rental_price: "", description: "", type: "", range_km: "", seats: 5 });
         loadCars();
       } else setCarErr(d.error || "Save failed.");
     } catch { setCarErr("Network error."); }
@@ -464,13 +474,17 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
   };
 
   const handleUploadCarImage = async (carId: number, file: File) => {
-    const formData = new FormData();
-    formData.append("image", file);
     try {
-      const res = await fetch(`/api/admin/cars/${carId}/image`, { method: "POST", headers: { "Authorization": `Bearer ${adminToken}` }, body: formData });
-      if (res.ok) { showMsg(setCarMsg, "Image uploaded."); loadCars(); }
-      else alert("Upload failed.");
-    } catch { alert("Network error."); }
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const res = await fetch(`/api/admin/cars/${carId}/image`, { method: "POST", headers: headers(), body: JSON.stringify({ image_url: reader.result as string }) });
+          if (res.ok) { showMsg(setCarMsg, "Image uploaded."); loadCars(); }
+          else alert("Upload failed.");
+        } catch { alert("Network error."); }
+      };
+      reader.readAsDataURL(file);
+    } catch { alert("File read error."); }
   };
 
   // ── Tracking ──
@@ -484,7 +498,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
 
   const handleDispatch = async (userId: number) => {
     try {
-      const res = await fetch(`/api/admin/tracking/${userId}/dispatch`, { method: "POST", headers: headers() });
+      const res = await fetch(`/api/admin/tracking/${userId}/dispatch`, { method: "POST", headers: headers(), body: JSON.stringify({ message: "Your vehicle has been dispatched and is now en route. Track it live in your dashboard!" }) });
       if (res.ok) { showMsg(setTrackingMsg, "Dispatch notification sent."); }
       else { const d = await res.json(); alert(d.error || "Dispatch failed."); }
     } catch { alert("Network error."); }
@@ -499,7 +513,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
       if (res.ok) {
         showMsg(setTrackingMsg, editingDelay ? "Delay updated." : "Delay created.");
         setShowDelayForm(false); setEditingDelay(null);
-        setDelayForm({ reason: "", duration_minutes: 60, affected_user_id: "" });
+        setDelayForm({ name: "", duration_days: 1, trigger_after_km: 50, expedite_fee: 49 });
         loadTracking();
       } else { const d = await res.json(); alert(d.error || "Save failed."); }
     } catch { alert("Network error."); }
@@ -879,9 +893,9 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
               {/* Revenue Summary */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: "Deposits Confirmed", value: `$${(revenue.total_deposits || 0).toLocaleString()}`, color: "text-emerald-400" },
-                  { label: "Transaction Fees (1%)", value: `$${(revenue.transaction_fees || 0).toLocaleString()}`, color: "text-cyan-400" },
-                  { label: "Elite Revenue", value: `$${(revenue.elite_revenue || 0).toLocaleString()}`, color: "text-purple-400" },
+                  { label: "Deposits Confirmed", value: `$${(revenue.total_deposits_confirmed || 0).toLocaleString()}`, color: "text-emerald-400" },
+                  { label: "Transaction Fees (1%)", value: `$${(revenue.transaction_fees_earned || 0).toLocaleString()}`, color: "text-cyan-400" },
+                  { label: "Elite Revenue", value: `$${(revenue.elite_subscription_revenue || 0).toLocaleString()}`, color: "text-purple-400" },
                   { label: "Insurance Revenue", value: `$${(revenue.insurance_revenue || 0).toLocaleString()}`, color: "text-amber-400" },
                 ].map((s, i) => (
                   <div key={i} className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl">
@@ -1033,7 +1047,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                   <option value="refunded">Refunded</option>
                   <option value="failed">Failed</option>
                 </select>
-                <a href="/api/admin/payments/csv" className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] uppercase font-bold tracking-wider hover:bg-emerald-500/20 transition cursor-pointer flex items-center gap-2">
+                <a href="/api/admin/payments/export" className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] uppercase font-bold tracking-wider hover:bg-emerald-500/20 transition cursor-pointer flex items-center gap-2">
                   <Download className="w-3.5 h-3.5" /> Export
                 </a>
               </div>
@@ -1127,7 +1141,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl">
                 <span className="text-xs text-white/40 font-mono">{cars.length} vehicles</span>
-                <button onClick={() => { setShowCarForm(!showCarForm); setEditingCar(null); setCarForm({ name: "", model: "", year: "", image: "", status: "Available", rental_price: "", description: "", type: "", range_km: "", seats: 5 }); }}
+                <button onClick={() => { setShowCarForm(!showCarForm); setEditingCar(null); setCarForm({ name: "", model: "", year: "", price: "", image: "", status: "Available", rental_price: "", description: "", type: "", range_km: "", seats: 5 }); }}
                   className="px-4 py-2 bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20 rounded-xl text-[10px] uppercase font-bold tracking-wider hover:bg-[#00E5FF]/20 transition cursor-pointer flex items-center gap-2">
                   <Plus className="w-3.5 h-3.5" /> {showCarForm ? "Cancel" : "Add Vehicle"}
                 </button>
@@ -1140,7 +1154,8 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                   <h3 className="text-sm font-bold flex items-center gap-2"><Car className="w-4 h-4 text-[#00E5FF]" /> {editingCar ? "Edit" : "Add"} Vehicle</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <input type="text" placeholder="Name" required value={carForm.name} onChange={e => setCarForm({ ...carForm, name: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
-                    <input type="text" placeholder="Model" value={carForm.model} onChange={e => setCarForm({ ...carForm, model: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="text" placeholder="Model (e.g. BYD Seal)" value={carForm.model} onChange={e => setCarForm({ ...carForm, model: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="number" step="0.01" min="0" placeholder="Price (USD)" value={carForm.price} onChange={e => setCarForm({ ...carForm, price: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
                     <input type="text" placeholder="Year" value={carForm.year} onChange={e => setCarForm({ ...carForm, year: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
                     <input type="text" placeholder="Image URL" value={carForm.image} onChange={e => setCarForm({ ...carForm, image: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
                     <input type="text" placeholder="Type (Sedan, SUV...)" value={carForm.type} onChange={e => setCarForm({ ...carForm, type: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
@@ -1186,7 +1201,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                       </div>
                       {c.rental_price_per_day ? <p className="text-[#00E5FF] font-bold">${Number(c.rental_price_per_day).toLocaleString()}/day</p> : c.rental_price ? <p className="text-[#00E5FF] font-bold">${Number(c.rental_price).toLocaleString()}/day</p> : null}
                       <div className="flex gap-1.5 pt-2 opacity-0 group-hover:opacity-100 transition">
-                        <button onClick={() => { setEditingCar(c); setShowCarForm(true); setCarForm({ name: c.name, model: c.model || "", year: c.year || "", image: c.image || c.image_url || "", status: c.status, rental_price: c.rental_price_per_day || c.rental_price || "", description: c.description || "", type: c.category || c.type || "", range_km: c.range_miles || c.range_km || "", seats: c.seats || 5 }); }}
+                        <button onClick={() => { setEditingCar(c); setShowCarForm(true); setCarForm({ name: c.name, model: c.model || "", year: c.year || "", price: c.price || "", image: c.image || c.image_url || "", status: c.status, rental_price: c.rental_price_per_day || c.rental_price || "", description: c.description || "", type: c.category || c.type || "", range_km: c.range_miles || c.range_km || "", seats: c.seats || 5 }); }}
                           className="p-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
                         <button onClick={() => { const f = document.createElement("input"); f.type = "file"; f.accept = "image/*"; f.onchange = () => { if (f.files?.[0]) handleUploadCarImage(c.id, f.files[0]); }; f.click(); }}
                           className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition cursor-pointer"><Upload className="w-3.5 h-3.5" /></button>
@@ -1206,7 +1221,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
 
               <div className="flex justify-between items-center bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl">
                 <span className="text-xs text-white/40 font-mono">{tracking.length} active deliveries</span>
-                <button onClick={() => { setShowDelayForm(!showDelayForm); setEditingDelay(null); setDelayForm({ reason: "", duration_minutes: 60, affected_user_id: "" }); }}
+                <button onClick={() => { setShowDelayForm(!showDelayForm); setEditingDelay(null); setDelayForm({ name: "", duration_days: 1, trigger_after_km: 50, expedite_fee: 49 }); }}
                   className="px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl text-[10px] uppercase font-bold tracking-wider hover:bg-amber-500/20 transition cursor-pointer flex items-center gap-2">
                   <Clock className="w-3.5 h-3.5" /> {showDelayForm ? "Cancel" : "Add Delay Event"}
                 </button>
@@ -1216,9 +1231,10 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                 <form onSubmit={handleSaveDelay} className="bg-white/5 backdrop-blur-xl border border-white/10 p-5 rounded-2xl space-y-3">
                   <h3 className="text-sm font-bold flex items-center gap-2"><Clock className="w-4 h-4 text-amber-400" /> {editingDelay ? "Edit" : "Add"} Delay Event</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <input type="text" placeholder="Reason" required value={delayForm.reason} onChange={e => setDelayForm({ ...delayForm, reason: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
-                    <input type="number" placeholder="Duration (min)" value={delayForm.duration_minutes} onChange={e => setDelayForm({ ...delayForm, duration_minutes: Number(e.target.value) })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
-                    <input type="number" placeholder="Affected User ID" value={delayForm.affected_user_id} onChange={e => setDelayForm({ ...delayForm, affected_user_id: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="text" placeholder="Name (e.g. Border Hold)" required value={delayForm.name} onChange={e => setDelayForm({ ...delayForm, name: e.target.value })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="number" placeholder="Duration (days)" value={delayForm.duration_days} onChange={e => setDelayForm({ ...delayForm, duration_days: Number(e.target.value) })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="number" placeholder="Trigger after (km)" value={delayForm.trigger_after_km} onChange={e => setDelayForm({ ...delayForm, trigger_after_km: Number(e.target.value) })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
+                    <input type="number" step="0.01" min="0" placeholder="Expedite fee ($)" value={delayForm.expedite_fee} onChange={e => setDelayForm({ ...delayForm, expedite_fee: Number(e.target.value) })} className="bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-[#00E5FF]/50" />
                   </div>
                   <button type="submit" className="px-5 py-2 bg-amber-500 text-black font-bold uppercase text-[10px] tracking-wider rounded-xl hover:bg-amber-400 transition cursor-pointer">Save Delay</button>
                 </form>
@@ -1232,11 +1248,11 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                     {delays.map((d: any) => (
                       <div key={d.id} className="flex items-center justify-between bg-[#0a0e1a] border border-white/10 px-4 py-2.5 rounded-xl">
                         <div className="flex-1">
-                          <p className="text-xs font-medium">{d.reason}</p>
-                          <p className="text-[10px] text-white/40">{d.duration_minutes} min • User #{d.affected_user_id}</p>
+                          <p className="text-xs font-medium">{d.name || d.reason}</p>
+                          <p className="text-[10px] text-white/40">{(d.duration_days || d.duration_minutes) + " "}{d.duration_days ? "days" : "min"} • triggers at {d.trigger_after_km || 0} km • ${d.expedite_fee || 0} fee</p>
                         </div>
                         <div className="flex gap-1.5">
-                          <button onClick={() => { setEditingDelay(d); setShowDelayForm(true); setDelayForm({ reason: d.reason, duration_minutes: d.duration_minutes, affected_user_id: d.affected_user_id }); }}
+                          <button onClick={() => { setEditingDelay(d); setShowDelayForm(true); setDelayForm({ name: d.name || d.reason || "", duration_days: d.duration_days || 1, trigger_after_km: d.trigger_after_km || 50, expedite_fee: d.expedite_fee || 49 }); }}
                             className="p-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
                           <button onClick={() => handleDeleteDelay(d.id)} className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>

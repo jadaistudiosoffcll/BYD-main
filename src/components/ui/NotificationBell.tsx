@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Check, Trash, AlertTriangle, Info, Clock, CheckCircle } from "lucide-react";
+import { Bell, Check, Trash, AlertTriangle, Info, Clock, CheckCircle, X } from "lucide-react";
 
 interface Notification {
   id: number;
@@ -119,61 +119,45 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ authToken })
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 max-w-sm sm:w-96 rounded-xl border border-slate-800 bg-slate-950 p-4 shadow-2xl z-50 text-left animate-in fade-in duration-200">
-          <div className="flex justify-between items-center pb-2.5 border-b border-slate-900">
-            <span className="font-display text-xs uppercase tracking-wider font-semibold text-slate-400 font-mono">
-              Notifications ({unreadCount} New)
-            </span>
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                className="text-[10px] text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Check className="w-3 h-3" />
-                Dismiss All
-              </button>
-            )}
-          </div>
-
-          <div className="mt-3 space-y-2.5 max-h-72 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-500 font-mono">
-                No active notifications
+        <>
+          {/* Mobile overlay backdrop */}
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 sm:hidden" onClick={() => setIsOpen(false)} />
+          {/* Dropdown: full-screen on mobile, absolute on desktop */}
+          <div className={`${'fixed sm:absolute inset-0 sm:inset-auto sm:right-0 sm:mt-2 sm:w-96 sm:max-h-[80vh] rounded-none sm:rounded-xl border-0 sm:border border-slate-800 bg-slate-950 sm:bg-slate-950 p-4 sm:p-4 shadow-2xl z-50 text-left animate-in fade-in duration-200 flex flex-col'}`}>
+            <div className="flex justify-between items-center pb-2.5 border-b border-slate-900 sm:border-b">
+              <span className="font-display text-xs uppercase tracking-wider font-semibold text-slate-400 font-mono">
+                Notifications ({unreadCount} New)
+              </span>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button onClick={handleMarkAllAsRead} className="text-[10px] text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1 cursor-pointer">
+                    <Check className="w-3 h-3" /> Dismiss All
+                  </button>
+                )}
+                <button onClick={() => setIsOpen(false)} className="sm:hidden text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
-            ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={`p-3 rounded-lg border transition duration-150 flex items-start gap-2.5 relative ${
-                    n.is_read === 0
-                      ? "bg-slate-900/60 border-slate-800"
-                      : "bg-slate-950/20 border-transparent opacity-60"
-                  }`}
-                >
-                  <div className="mt-0.5">{getIcon(n.message)}</div>
-                  <div className="flex-1 min-w-0 pr-4">
-                    <p className="text-xs text-slate-200 leading-normal font-sans tracking-tight">
-                      {n.message}
-                    </p>
-                    <span className="text-[9px] font-mono text-slate-500 block mt-1 flex items-center gap-1">
-                      <Clock className="w-2.5 h-2.5" />
-                      {formatTime(n.created_at)}
-                    </span>
+            </div>
+
+            <div className="mt-3 flex-1 overflow-y-auto max-h-[calc(100vh-120px)] sm:max-h-72 space-y-2.5">
+              {notifications.length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-500 font-mono">No active notifications</div>
+              ) : (
+                notifications.map((n) => (
+                  <div key={n.id} className={`p-3 rounded-lg border transition duration-150 flex items-start gap-2.5 relative ${n.is_read === 0 ? "bg-slate-900/60 border-slate-800" : "bg-slate-950/20 border-transparent opacity-60"}`}>
+                    <div className="mt-0.5">{getIcon(n.message)}</div>
+                    <div className="flex-1 min-w-0 pr-4">
+                      <p className="text-xs text-slate-200 leading-normal font-sans tracking-tight">{n.message}</p>
+                      <span className="text-[9px] font-mono text-slate-500 block mt-1 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{formatTime(n.created_at)}</span>
+                    </div>
+                    {n.is_read === 0 && (
+                      <button onClick={() => handleMarkAsRead(n.id)} className="shrink-0 text-slate-500 hover:text-blue-400 transition" title="Mark as read"><Check className="w-3.5 h-3.5" /></button>
+                    )}
                   </div>
-                  {n.is_read === 0 && (
-                    <button
-                      onClick={() => handleMarkAsRead(n.id)}
-                      className="absolute top-3 right-3 text-slate-500 hover:text-blue-400 transition"
-                      title="Mark as read"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

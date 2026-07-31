@@ -7,10 +7,20 @@ import { BYD_VEHICLE_FLEET } from './data/cars.js';
 class SqlJsDbWrapper {
   private rawDb: any;
   private dbPath: string;
+  private saveTimer: any;
 
   constructor(rawDb: any, dbPath: string) {
     this.rawDb = rawDb;
     this.dbPath = dbPath;
+  }
+
+  startAutoSave(intervalMs = 30000) {
+    this.stopAutoSave();
+    this.saveTimer = setInterval(() => this.saveToDisk(), intervalMs);
+  }
+
+  stopAutoSave() {
+    if (this.saveTimer) { clearInterval(this.saveTimer); this.saveTimer = null; }
   }
 
   private saveToDisk() {
@@ -59,7 +69,6 @@ class SqlJsDbWrapper {
       console.error(`SQL run error on: ${sql.substring(0, 80)}...`, e?.message);
       throw e;
     }
-    this.saveToDisk();
     let lastID: number | undefined;
     try {
       const res = this.rawDb.exec("SELECT last_insert_rowid();");
@@ -70,6 +79,7 @@ class SqlJsDbWrapper {
       const res = this.rawDb.exec("SELECT changes();");
       if (res?.[0]?.values) changes = res[0].values[0][0];
     } catch {}
+    this.saveToDisk();
     return { lastID, changes };
   }
 
@@ -80,6 +90,18 @@ class SqlJsDbWrapper {
 }
 
 let dbInstance: SqlJsDbWrapper | null = null;
+
+export function forceSave() {
+  if (dbInstance) { try { (dbInstance as any).saveToDisk(); } catch {} }
+}
+
+// Graceful shutdown — save before exit
+function registerShutdownHandlers() {
+  const handleExit = () => { forceSave(); process.exit(0); };
+  process.on('SIGINT', handleExit);
+  process.on('SIGTERM', handleExit);
+  process.on('exit', () => forceSave());
+}
 
 export async function getDb() {
   if (dbInstance) return dbInstance;
@@ -95,50 +117,48 @@ export async function getDb() {
 
   const SQL = await initSqlJs();
   let rawDb: any;
+  let backupCreated = false;
   try {
     rawDb = fileBuffer ? new SQL.Database(fileBuffer) : new SQL.Database();
   } catch (dbInitErr) {
-    console.error("Database initialization failed, creating fresh:", dbInitErr);
+    console.error("Database file is corrupt, backing it up and creating fresh:", dbInitErr);
+    try {
+      if (fs.existsSync(dbPath)) fs.renameSync(dbPath, dbPath + `.corrupt-${Date.now()}`);
+      backupCreated = true;
+    } catch {}
     rawDb = new SQL.Database();
   }
 
   dbInstance = new SqlJsDbWrapper(rawDb, dbPath);
 
-  try {
-    await dbInstance.exec('PRAGMA foreign_keys = ON');
-    await dbInstance.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT NOT NULL,
-        password_hash TEXT NOT NULL, referral_code TEXT NOT NULL UNIQUE, referrer_id INTEGER,
-        membership_active INTEGER DEFAULT 0, membership_expiry TEXT,
-        membership_tier TEXT DEFAULT 'standard',
-        horizon_points INTEGER DEFAULT 0, balance REAL DEFAULT 0.0,
-        crypto_wallet_address TEXT NOT NULL, city TEXT NOT NULL, country TEXT DEFAULT 'US',
-        status TEXT DEFAULT 'active', created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        kyc_status TEXT DEFAULT 'not_submitted',
-        kyc_name TEXT, kyc_dob TEXT, kyc_nationality TEXT, kyc_id_number TEXT,
-        kyc_id_front TEXT, kyc_id_back TEXT, kyc_selfie TEXT, kyc_address_proof TEXT,
-        kyc_source_of_funds TEXT, kyc_annual_income TEXT, kyc_investment_experience TEXT,
-        kyc_phone_verified INTEGER DEFAULT 0, kyc_submitted_at TEXT,
-        daily_streak INTEGER DEFAULT 0, last_checkin_date TEXT,
-        notification_permission INTEGER DEFAULT 0, is_incognito INTEGER DEFAULT 0,
-        is_president_club INTEGER DEFAULT 0, carbon_trees_planted INTEGER DEFAULT 0,
-        carbon_lbs_saved REAL DEFAULT 0.0, lottery_tickets INTEGER DEFAULT 0,
-        password_reset_token TEXT, password_reset_expires TEXT,
-        totp_secret TEXT, totp_enabled INTEGER DEFAULT 0
-      );
-    `);
-  } catch (initErr) {
-    console.error("SQLite init failed, creating fallback:", initErr);
-    try {
-      if (fs.existsSync(dbPath)) fs.renameSync(dbPath, dbPath + `.corrupt-${Date.now()}`);
-    } catch {}
-    rawDb = new SQL.Database();
-    dbInstance = new SqlJsDbWrapper(rawDb, dbPath);
-    await dbInstance.exec('PRAGMA foreign_keys = ON');
-    await dbInstance.exec(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT NOT NULL, password_hash TEXT NOT NULL, referral_code TEXT NOT NULL UNIQUE, referrer_id INTEGER, membership_active INTEGER DEFAULT 0, membership_expiry TEXT, membership_tier TEXT DEFAULT 'standard', horizon_points INTEGER DEFAULT 0, balance REAL DEFAULT 0.0, crypto_wallet_address TEXT NOT NULL, city TEXT NOT NULL, country TEXT DEFAULT 'US', status TEXT DEFAULT 'active', created_at TEXT DEFAULT CURRENT_TIMESTAMP, kyc_status TEXT DEFAULT 'not_submitted', kyc_name TEXT, kyc_dob TEXT, kyc_nationality TEXT, kyc_id_number TEXT, kyc_id_front TEXT, kyc_id_back TEXT, kyc_selfie TEXT, kyc_address_proof TEXT, kyc_source_of_funds TEXT, kyc_annual_income TEXT, kyc_investment_experience TEXT, kyc_phone_verified INTEGER DEFAULT 0, kyc_submitted_at TEXT, daily_streak INTEGER DEFAULT 0, last_checkin_date TEXT, notification_permission INTEGER DEFAULT 0, is_incognito INTEGER DEFAULT 0, is_president_club INTEGER DEFAULT 0, carbon_trees_planted INTEGER DEFAULT 0, carbon_lbs_saved REAL DEFAULT 0.0, lottery_tickets INTEGER DEFAULT 0, password_reset_token TEXT, password_reset_expires TEXT, totp_secret TEXT, totp_enabled INTEGER DEFAULT 0);`);
-  }
+  // NEVER wipe an existing database on table errors — only a truly corrupt file
+  // (that failed to open above) gets backed up. Table creation is idempotent.
+  const usersTableSql = `
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT NOT NULL,
+      password_hash TEXT NOT NULL, referral_code TEXT NOT NULL UNIQUE, referrer_id INTEGER,
+      membership_active INTEGER DEFAULT 0, membership_expiry TEXT,
+      membership_tier TEXT DEFAULT 'standard',
+      horizon_points INTEGER DEFAULT 0, balance REAL DEFAULT 0.0,
+      crypto_wallet_address TEXT NOT NULL, city TEXT NOT NULL, country TEXT DEFAULT 'US',
+      status TEXT DEFAULT 'active', created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      kyc_status TEXT DEFAULT 'not_submitted',
+      kyc_name TEXT, kyc_dob TEXT, kyc_nationality TEXT, kyc_id_number TEXT,
+      kyc_id_front TEXT, kyc_id_back TEXT, kyc_selfie TEXT, kyc_address_proof TEXT,
+      kyc_source_of_funds TEXT, kyc_annual_income TEXT, kyc_investment_experience TEXT,
+      kyc_phone_verified INTEGER DEFAULT 0, kyc_submitted_at TEXT,
+      daily_streak INTEGER DEFAULT 0, last_checkin_date TEXT,
+      notification_permission INTEGER DEFAULT 0, is_incognito INTEGER DEFAULT 0,
+      is_president_club INTEGER DEFAULT 0, carbon_trees_planted INTEGER DEFAULT 0,
+      carbon_lbs_saved REAL DEFAULT 0.0, lottery_tickets INTEGER DEFAULT 0,
+      password_reset_token TEXT, password_reset_expires TEXT,
+      totp_secret TEXT, totp_enabled INTEGER DEFAULT 0
+    );
+  `;
+  try { await dbInstance.exec('PRAGMA foreign_keys = ON'); } catch (e: any) { console.error("PRAGMA foreign_keys failed (non-fatal):", e?.message); }
+  try { await dbInstance.exec(usersTableSql); } catch (e: any) { console.error("Users table creation failed:", e?.message); }
+  if (backupCreated) console.error("WARNING: Previous database was backed up due to corruption. No user data was intentionally deleted.");
 
   // Create all tables
   const tables = [
@@ -195,7 +215,9 @@ export async function getDb() {
     `CREATE TABLE IF NOT EXISTS insurance_tiers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, daily_rate REAL NOT NULL, coverage_limit REAL NOT NULL, deductible REAL DEFAULT 0, description TEXT, is_active INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0)`,
     `CREATE TABLE IF NOT EXISTS master_ai_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT NOT NULL UNIQUE, api_key TEXT NOT NULL, webhook_url TEXT, status TEXT DEFAULT 'connected', last_sync TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, amount REAL NOT NULL, wallet_address TEXT NOT NULL, currency TEXT DEFAULT 'USDT', network TEXT DEFAULT 'TRC20', status TEXT CHECK(status IN ('pending','confirmed','rejected')) DEFAULT 'pending', admin_note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE)`,
-    `CREATE TABLE IF NOT EXISTS mystery_car_prizes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, prize_name TEXT NOT NULL, prize_value REAL DEFAULT 0, prize_type TEXT DEFAULT 'prize', claimed INTEGER DEFAULT 0, shipping_city TEXT, shipping_location TEXT, shipping_email TEXT, shipping_cost REAL DEFAULT 0, shipping_paid INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE)`
+    `CREATE TABLE IF NOT EXISTS mystery_car_prizes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, prize_name TEXT NOT NULL, prize_value REAL DEFAULT 0, prize_type TEXT DEFAULT 'prize', claimed INTEGER DEFAULT 0, shipping_city TEXT, shipping_location TEXT, shipping_email TEXT, shipping_cost REAL DEFAULT 0, shipping_paid INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE)`,
+    `CREATE TABLE IF NOT EXISTS purchases (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, car_id INTEGER NOT NULL, model TEXT NOT NULL, amount REAL NOT NULL, status TEXT CHECK(status IN ('pending','confirmed','shipped','delivered','cancelled')) DEFAULT 'pending', delivery_city TEXT DEFAULT '', delivery_country TEXT DEFAULT 'US', shipping_cost REAL DEFAULT 0, tracking_initialized INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE)`,
+    `CREATE TABLE IF NOT EXISTS user_notification_emails (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL UNIQUE, email TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE)`
   ];
 
   for (const sql of tables) {
@@ -569,6 +591,10 @@ export async function getDb() {
   }
 
   } catch (e: any) { console.error("Seed error:", e?.message); }
+
+  // Start periodic auto-save and register shutdown handlers
+  dbInstance.startAutoSave(15000);
+  registerShutdownHandlers();
 
   return dbInstance;
 }

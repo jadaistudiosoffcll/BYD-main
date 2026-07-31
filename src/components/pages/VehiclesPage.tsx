@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Car } from "../../data/cars";
+import { Car, BYD_VEHICLE_FLEET } from "../../data/cars";
 import { AllModelsGrid } from "../sections/AllModelsGrid";
 import { ArtOfBYDGallery } from "../sections/ArtOfBYDGallery";
 import { TrendingNow } from "../sections/TrendingNow";
@@ -12,12 +12,19 @@ import { Compass, Scale, LayoutGrid, X } from "lucide-react";
 interface VehiclesPageProps {
   onNavigate: (view: "landing" | "payment" | "dashboard" | "admin" | "help", params?: any) => void;
   id?: string;
+  model?: string;
 }
 
-export const VehiclesPage: React.FC<VehiclesPageProps> = ({ onNavigate, id }) => {
+export const VehiclesPage: React.FC<VehiclesPageProps> = ({ onNavigate, id, model }) => {
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [comparedList, setComparedList] = useState<Car[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!model) return;
+    const match = BYD_VEHICLE_FLEET.find(c => c.model.toLowerCase() === model.toLowerCase());
+    if (match) setSelectedCar(match);
+  }, [model, id]);
 
   // Synchronize comparison clicks
   const handleCompareToggle = (car: Car) => {
@@ -46,13 +53,12 @@ export const VehiclesPage: React.FC<VehiclesPageProps> = ({ onNavigate, id }) =>
   };
 
   const handleInvestTrigger = (car: Car) => {
-    // Navigate straight to payment flow with car selected
-    onNavigate("payment", {
-      type: "installment",
-      vehicleModel: car.model,
-      price: car.price,
-      monthlyFinance: car.monthlyFinance
-    });
+    const token = localStorage.getItem("byd_horizon_token");
+    if (token) {
+      onNavigate("dashboard", { tab: "secure", car: { id: car.id, model: car.model, price: car.price, monthlyFinance: car.monthlyFinance, image: car.image_url, rentalDaily: car.rental_price_per_day } });
+    } else {
+      onNavigate("payment", { type: "installment", vehicleModel: car.model, price: car.price, monthlyFinance: car.monthlyFinance });
+    }
   };
 
   return (
@@ -167,7 +173,7 @@ export const VehiclesPage: React.FC<VehiclesPageProps> = ({ onNavigate, id }) =>
       {comparedList.length > 0 && !sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-[#00E5FF] hover:bg-cyan-400 text-black px-5 py-3 rounded-full font-mono text-xs font-bold uppercase tracking-widest shadow-[0_5px_20px_rgba(0,229,255,0.4)] transition-all active:scale-95"
+          className="fixed bottom-24 right-6 z-40 flex items-center gap-2 bg-[#00E5FF] hover:bg-cyan-400 text-black px-5 py-3 rounded-full font-mono text-xs font-bold uppercase tracking-widest shadow-[0_5px_20px_rgba(0,229,255,0.4)] transition-all active:scale-95"
         >
           <Scale className="w-4 h-4 animate-bounce" />
           <span>Compare Matrix ({comparedList.length})</span>

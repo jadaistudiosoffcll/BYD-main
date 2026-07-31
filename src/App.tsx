@@ -4,10 +4,9 @@ import PaymentFlow from "./components/PaymentFlow";
 import UserDashboard from "./components/UserDashboard";
 import AdminPanel from "./components/AdminPanel";
 import HelpPage from "./components/HelpPage";
-import SupportWidget from "./components/SupportWidget";
 import { VehiclesPage } from "./components/pages/VehiclesPage";
-import { Home, Compass, HelpCircle, LogOut, User, Shield, Zap, Menu, X, UserCheck, Car, Gift, Award, MapPin, Gamepad2, DollarSign, BarChart3, Settings, Users, CreditCard, MessageSquare, Sparkles, LayoutDashboard, Search, HeartHandshake, Grid3X3, Camera, Crown, TrendingUp, Map, Navigation, Mail, Smartphone, Wallet, QrCode, Copy, Check, RefreshCw, ExternalLink } from "lucide-react";
-import AIChatWidget from "./components/AIChatWidget";
+import { LogOut, Shield, Menu, X, UserCheck, Car, Gift, MapPin, Gamepad2, BarChart3, Settings, Users, MessageSquare, Grid3X3, TrendingUp, Send, Award } from "lucide-react";
+import { NotificationBell } from "./components/ui/NotificationBell";
 
 class AppErrorBoundary extends Component<{children: ReactNode}, {error: Error | null}> {
   constructor(props: {children: ReactNode}) { super(props); this.state = { error: null }; }
@@ -60,9 +59,8 @@ export default function App() {
       try {
         const u = JSON.parse(savedUser);
         setUser(u);
-        if (u.is_admin) { setCurrentView("dashboard"); if (!localStorage.getItem("byd_terms_accepted")) setShowTerms(true); }
-        else { setCurrentView("dashboard"); if (!localStorage.getItem("byd_terms_accepted")) setShowTerms(true); }
-      } catch {
+        setCurrentView("dashboard");
+        if (!localStorage.getItem("byd_terms_accepted")) setShowTerms(true);      } catch {
         localStorage.removeItem("byd_horizon_token");
         localStorage.removeItem("byd_horizon_user");
       }
@@ -72,7 +70,6 @@ export default function App() {
   const handleNavigate = (view: "landing" | "vehicles" | "payment" | "dashboard" | "admin" | "help", params?: any) => {
     setViewParams(params);
     if (token && view === "landing") { setCurrentView("dashboard"); return; }
-    if (view === "payment" && token) { setCurrentView("dashboard"); return; }
     setCurrentView(view);
     setSidebarOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -140,10 +137,11 @@ export default function App() {
     { icon: Car, label: "Rent a Vehicle", view: "dashboard" as const, tab: "rent" },
     { icon: MapPin, label: "Tracking & Transit", view: "dashboard" as const, tab: "tracking" },
     { icon: TrendingUp, label: "Financial Hub", view: "dashboard" as const, tab: "finance" },
+    { icon: Gift, label: "Mystery Car", view: "dashboard" as const, tab: "mysterycar" },
     { icon: MessageSquare, label: "Help Center", view: "dashboard" as const, tab: "help" },
     { icon: Gamepad2, label: "Games", view: "dashboard" as const, tab: "games" },
     { icon: Users, label: "Referrals", view: "dashboard" as const, tab: "referrals" },
-    { icon: Gift, label: "Rewards", view: "dashboard" as const, tab: "rewards" },
+    { icon: Award, label: "Rewards", view: "dashboard" as const, tab: "rewards" },
     { icon: UserCheck, label: "KYC", view: "dashboard" as const, tab: "kyc" },
     { icon: Settings, label: "Settings", view: "dashboard" as const, tab: "settings" },
   ];
@@ -172,7 +170,6 @@ export default function App() {
             {!token && (
               <>
                 <button onClick={() => handleNavigate("vehicles")} className="px-3 py-1.5 text-white/60 hover:text-white text-xs font-mono tracking-wide uppercase hover:bg-white/5 rounded-lg transition">Showroom</button>
-                <button onClick={() => handleNavigate("help")} className="px-3 py-1.5 text-white/60 hover:text-white text-xs font-mono tracking-wide uppercase hover:bg-white/5 rounded-lg transition">Help</button>
               </>
             )}
           </div>
@@ -183,6 +180,8 @@ export default function App() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-[10px] font-mono text-white/60 uppercase">{user?.name || "User"}</span>
                 </div>
+                {!user?.is_admin && <NotificationBell authToken={token} />}
+                <a href="https://t.me/byd_horizon_support" target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 bg-[#0088cc]/20 border border-[#0088cc]/30 text-[#00a8e8] text-xs font-mono tracking-wide uppercase rounded-lg hover:bg-[#0088cc]/30 transition" title="Telegram Support"><Send className="w-3.5 h-3.5" />Telegram</a>
                 {token && !user?.is_admin && (
                   <button onClick={() => handleNavigate("help")} className="hidden sm:inline-flex px-3 py-1.5 text-white/60 hover:text-white text-xs font-mono tracking-wide uppercase hover:bg-white/5 rounded-lg transition">Help</button>
                 )}
@@ -221,7 +220,7 @@ export default function App() {
             </div>
             <nav className="px-2 space-y-0.5 overflow-y-auto max-h-[calc(100vh-200px)]">
               {sidebarItems.map((item, i) => (
-                <button key={i} onClick={() => { setShowNotifPanel(false); handleNavigate(item.view, item.tab ? { tab: item.tab } : undefined); }} className="flex items-center space-x-2.5 w-full px-3 py-2 rounded-lg text-xs text-white/60 hover:text-white hover:bg-white/5 transition font-mono tracking-wide">
+                <button key={i} onClick={() => { handleNavigate(item.view, item.tab ? { tab: item.tab } : undefined); }} className="flex items-center space-x-2.5 w-full px-3 py-2 rounded-lg text-xs text-white/60 hover:text-white hover:bg-white/5 transition font-mono tracking-wide">
                   <item.icon className="w-3.5 h-3.5 shrink-0" />
                   <span>{item.label}</span>
                 </button>
@@ -230,15 +229,15 @@ export default function App() {
           </aside>
           {/* Main content */}
           <main className="flex-1 overflow-y-auto">
-            <UserDashboard authToken={token!} onNavigate={handleNavigate} initialTab={viewParams?.tab} />
+            <UserDashboard authToken={token!} onNavigate={handleNavigate} initialTab={viewParams?.tab} viewParams={viewParams} />
           </main>
         </div>
       ) : (
         <main className="flex-1">
           {currentView === "landing" && <LandingPage onNavigate={handleNavigate} charityAmount={charityAmount} setCharityAmount={setCharityAmount} />}
-          {currentView === "vehicles" && <VehiclesPage onNavigate={handleNavigate} />}
+          {currentView === "vehicles" && <VehiclesPage onNavigate={handleNavigate} model={viewParams?.model} />}
           {currentView === "payment" && <PaymentFlow initialPlan={viewParams?.planType} onNavigate={handleNavigate} onLoginSuccess={handleLoginSuccess} />}
-          {currentView === "dashboard" && <UserDashboard authToken={token!} onNavigate={handleNavigate} />}
+          {currentView === "dashboard" && <UserDashboard authToken={token!} onNavigate={handleNavigate} viewParams={viewParams} />}
           {currentView === "admin" && <AdminPanel onNavigate={handleNavigate} initialToken={token || ""} initialIsAdmin={!!user?.is_admin} />}
           {currentView === "help" && <HelpPage onNavigate={handleNavigate} />}
         </main>
@@ -255,8 +254,8 @@ export default function App() {
               </div>
               <p className="text-[10px] text-white/40 leading-relaxed">The World's First Decentralized EV Collective.</p>
             </div>
-            <div><h5 className="text-[9px] uppercase font-mono tracking-widest text-white/40 font-bold mb-2">Showroom</h5><div className="space-y-1 text-[10px] text-white/40"><button onClick={() => handleNavigate("vehicles")} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">BYD Seal</button><button onClick={() => handleNavigate("vehicles")} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">BYD Han</button><button onClick={() => handleNavigate("vehicles")} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">BYD Atto 3</button></div></div>
-            <div><h5 className="text-[9px] uppercase font-mono tracking-widest text-white/40 font-bold mb-2">Resources</h5><div className="space-y-1 text-[10px] text-white/40"><button onClick={() => handleNavigate("help")} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">Help Center</button><p>Privacy Policy</p><p>Terms of Service</p></div></div>
+            <div><h5 className="text-[9px] uppercase font-mono tracking-widest text-white/40 font-bold mb-2">Showroom</h5><div className="space-y-1 text-[10px] text-white/40"><button onClick={() => handleNavigate("vehicles", { model: "BYD Seal" })} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">BYD Seal</button><button onClick={() => handleNavigate("vehicles", { model: "BYD Han" })} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">BYD Han</button><button onClick={() => handleNavigate("vehicles", { model: "BYD Atto 3" })} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">BYD Atto 3</button></div></div>
+            <div><h5 className="text-[9px] uppercase font-mono tracking-widest text-white/40 font-bold mb-2">Resources</h5><div className="space-y-1 text-[10px] text-white/40"><button onClick={() => handleNavigate("help")} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">Help Center</button><button onClick={() => { setTermsScrolled(false); setShowTerms(true); }} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">Privacy Policy</button><button onClick={() => { setTermsScrolled(false); setShowTerms(true); }} className="hover:text-[#00e5ff] bg-transparent border-none p-0 cursor-pointer">Terms of Service</button></div></div>
             <div className="text-right space-y-2">
               <button onClick={handleAdminEmblemClick} className="flex items-center gap-2 ml-auto opacity-40 hover:opacity-100 transition cursor-pointer bg-transparent border-none">
                 <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
@@ -343,8 +342,12 @@ export default function App() {
         </div>
       )}
 
-      {token && !user?.is_admin && <AIChatWidget token={token} />}
-      <SupportWidget />
+      {/* Telegram floating button */}
+      <a href="https://t.me/byd_horizon_support" target="_blank" rel="noopener noreferrer"
+        className="fixed bottom-4 right-4 z-50 h-12 w-12 bg-[#0088cc] hover:bg-[#0077b5] text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-blue-500/20 active:scale-95 transition-all group"
+        title="Contact Telegram Support">
+        <Send className="w-5 h-5" />
+      </a>
     </div>
     </AppErrorBoundary>
   );
