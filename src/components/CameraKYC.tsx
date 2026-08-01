@@ -36,7 +36,7 @@ export default function CameraKYC({ token, currentStatus, onComplete }: CameraKY
   };
 
   const submitKYC = async () => {
-    if (!frontImage || !backImage || !selfieImage) { setError("All three photos are required."); return; }
+    if (!frontImage && !backImage && !selfieImage) { setError("Please upload at least one document photo."); return; }
     setUploading(true);
     setError("");
     try {
@@ -136,12 +136,12 @@ export default function CameraKYC({ token, currentStatus, onComplete }: CameraKY
           <ArrowLeft className="w-3 h-3" /> Previous
         </button>
         {currentStep < 2 ? (
-          <button onClick={() => setCurrentStep(p => p + 1)} disabled={!steps[currentStep].image}
+          <button onClick={() => setCurrentStep(p => p + 1)}
             className="px-4 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-300 cursor-pointer hover:bg-cyan-500/30 transition disabled:opacity-30 flex items-center gap-1">
             Next <ArrowRight className="w-3 h-3" />
           </button>
         ) : (
-          <button onClick={submitKYC} disabled={uploading || !selfieImage}
+          <button onClick={submitKYC} disabled={uploading}
             className="px-6 py-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 cursor-pointer hover:bg-emerald-500/30 transition disabled:opacity-40 flex items-center gap-2">
             {uploading ? <><span className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" /> Submitting...</> : <><Shield className="w-4 h-4" /> Submit KYC</>}
           </button>

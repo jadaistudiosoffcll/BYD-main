@@ -67,7 +67,7 @@ export function RentVehiclePage({ authToken, onNavigate }: Props) {
     if (!selectedVehicle || !booking.startDate || !booking.endDate) return;
     setCheckingAvailability(true);
     try {
-      const res = await fetch(`/api/rentals/availability/${selectedVehicle.carId || selectedVehicle.id}?startDate=${booking.startDate}&endDate=${booking.endDate}`);
+      const res = await fetch(`/api/rentals/availability/${selectedVehicle.id}?startDate=${booking.startDate}&endDate=${booking.endDate}`);
       const data = await res.json();
       setAvailability(data);
     } catch {} finally { setCheckingAvailability(false); }

@@ -368,6 +368,16 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
     } catch { alert("Failed to change status."); }
   };
 
+  const handleKycDecision = async (id: number, decision: "verified" | "rejected") => {
+    try {
+      const res = await fetch(`/api/admin/users/${id}/edit`, { method: "POST", headers: headers(), body: JSON.stringify({ kyc_status: decision }) });
+      if (res.ok) {
+        showMsg(setEditUserMsg, decision === "verified" ? `User #${id} KYC approved.` : `User #${id} KYC rejected.`);
+        loadUsers();
+      } else alert("KYC update failed.");
+    } catch { alert("Network error."); }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateUserErr(""); setCreateUserMsg("");
@@ -1012,7 +1022,13 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                           <td className="p-3"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.status === "blocked" ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>{u.status || "active"}</span></td>
                           <td className="p-3">
                             <div className="flex items-center justify-center gap-1.5">
-                              <button onClick={() => { setEditingUser(u); setEditUserForm({ name: u.name, email: u.email, phone: u.phone, city: u.city, country: u.country, kyc_status: u.kyc_status, is_incognito: !!u.is_incognito, membership_tier: u.membership_tier, horizon_points: u.horizon_points || 0, status: u.status }); }}
+                              {u.kyc_status === "pending" && (
+                                <>
+                                  <button onClick={() => handleKycDecision(u.id, "verified")} className="p-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition cursor-pointer" title="Approve KYC"><CheckCircle className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => handleKycDecision(u.id, "rejected")} className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition cursor-pointer" title="Reject KYC"><X className="w-3.5 h-3.5" /></button>
+                                </>
+                              )}
+                              <button onClick={() => { setEditingUser(u); setEditUserForm({ name: u.name, email: u.email, phone: u.phone, city: u.city, country: u.country, kyc_status: u.kyc_status, is_incognito: !!u.is_incognito, membership_tier: u.membership_tier, horizon_points: u.horizon_points || 0, balance: u.balance || 0, membership_active: !!u.membership_active, status: u.status }); }}
                                 className="p-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition cursor-pointer" title="Edit"><Edit className="w-3.5 h-3.5" /></button>
                               <button onClick={() => handleResetPassword(u.id)} className="p-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition cursor-pointer" title="Reset Password"><KeyRound className="w-3.5 h-3.5" /></button>
                               <button onClick={() => handleToggleUserStatus(u.id, u.status)} className={`p-1.5 rounded-lg border transition cursor-pointer ${u.status === "blocked" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20"}`} title={u.status === "blocked" ? "Unblock" : "Block"}>
@@ -2289,8 +2305,16 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                 <input type="text" value={editUserForm.phone || ""} onChange={e => setEditUserForm({ ...editUserForm, phone: e.target.value })} className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl focus:outline-none focus:border-[#00E5FF]/50" />
               </div>
               <div className="space-y-1">
+                <label className="text-[10px] text-white/40 font-mono">Country</label>
+                <input type="text" value={editUserForm.country || ""} onChange={e => setEditUserForm({ ...editUserForm, country: e.target.value })} className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl focus:outline-none focus:border-[#00E5FF]/50" />
+              </div>
+              <div className="space-y-1">
                 <label className="text-[10px] text-white/40 font-mono">City</label>
                 <input type="text" value={editUserForm.city || ""} onChange={e => setEditUserForm({ ...editUserForm, city: e.target.value })} className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl focus:outline-none focus:border-[#00E5FF]/50" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-white/40 font-mono">Balance (USD)</label>
+                <input type="number" step="0.01" value={editUserForm.balance || 0} onChange={e => setEditUserForm({ ...editUserForm, balance: Number(e.target.value) })} className="w-full bg-[#0a0e1a] border border-white/10 px-3 py-2 rounded-xl focus:outline-none focus:border-[#00E5FF]/50" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] text-white/40 font-mono">KYC Status</label>
@@ -2298,6 +2322,7 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                   <option value="not_submitted">Not Submitted</option>
                   <option value="pending">Pending</option>
                   <option value="verified">Verified</option>
+                  <option value="rejected">Rejected</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -2306,6 +2331,10 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
                   <option value="standard">Standard</option>
                   <option value="premium">Premium</option>
                   <option value="vip">VIP</option>
+                  <option value="gold">Gold</option>
+                  <option value="silver">Silver</option>
+                  <option value="platinum">Platinum</option>
+                  <option value="elite">Elite</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -2322,6 +2351,10 @@ export default function AdminPanel({ onNavigate, initialToken, initialIsAdmin }:
               <div className="col-span-2 flex items-center gap-2 bg-[#0a0e1a] border border-white/10 px-4 py-2.5 rounded-xl">
                 <input type="checkbox" id="incognito" checked={!!editUserForm.is_incognito} onChange={e => setEditUserForm({ ...editUserForm, is_incognito: e.target.checked })} className="accent-[#00E5FF]" />
                 <label htmlFor="incognito" className="text-xs text-white/70 cursor-pointer">Incognito Mode (hide from maps)</label>
+              </div>
+              <div className="col-span-2 flex items-center gap-2 bg-[#0a0e1a] border border-white/10 px-4 py-2.5 rounded-xl">
+                <input type="checkbox" id="membershipActive" checked={!!editUserForm.membership_active} onChange={e => setEditUserForm({ ...editUserForm, membership_active: e.target.checked })} className="accent-[#00E5FF]" />
+                <label htmlFor="membershipActive" className="text-xs text-white/70 cursor-pointer">Elite Membership Active</label>
               </div>
               <div className="col-span-2 flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 bg-white/5 text-white/70 border border-white/10 rounded-xl text-[10px] hover:bg-white/10 transition cursor-pointer">Cancel</button>

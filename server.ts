@@ -371,27 +371,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
   res.json({ success: true, message: "Password reset successful." });
 });
 
-// ==================== KYC ====================
-
-app.post("/api/kyc/submit", authenticateUser, async (req: any, res) => {
-  const { name, dob, nationality, idNumber, idFront, idBack, selfie, addressProof, sourceOfFunds, annualIncome, investmentExperience, phoneVerified } = req.body;
-  if (!name || !dob || !nationality || !idNumber) return res.status(400).json({ error: "All required KYC fields must be filled." });
-  const db = await getDb();
-  await db.run(
-    `UPDATE users SET kyc_name=?, kyc_dob=?, kyc_nationality=?, kyc_id_number=?, kyc_id_front=?, kyc_id_back=?, kyc_selfie=?, kyc_address_proof=?, kyc_source_of_funds=?, kyc_annual_income=?, kyc_investment_experience=?, kyc_phone_verified=?, kyc_status='pending', kyc_submitted_at=CURRENT_TIMESTAMP WHERE id=?`,
-    [name, dob, nationality, idNumber, idFront || '', idBack || '', selfie || '', addressProof || '', sourceOfFunds || '', annualIncome || '', investmentExperience || '', phoneVerified ? 1 : 0, req.user.id]
-  );
-  await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'kyc', 'KYC Submitted', 'Your KYC documents are under review. We will notify you once verified.')", [req.user.id]);
-  await logUserInteraction(req.user.id, req.user.email, "KYC_SUBMIT", "KYC documents submitted for verification");
-  res.json({ success: true, message: "KYC documents submitted. Pending admin review." });
-});
-
-app.get("/api/kyc/status", authenticateUser, async (req: any, res) => {
-  const db = await getDb();
-  const user = await db.get("SELECT kyc_status, kyc_name, kcy_nationality, kyc_submitted_at FROM users WHERE id = ?", [req.user.id]);
-  res.json({ status: user?.kyc_status || 'not_submitted', submittedAt: user?.kyc_submitted_at || null });
-});
-
 // ==================== PAYMENTS ====================
 
 app.get("/api/payment-methods", async (req, res) => {
@@ -945,20 +924,15 @@ app.post("/api/admin/fraud-action", authenticateAdmin, async (req: any, res) => 
 // ==================== KYC SUBMISSION ====================
 app.post("/api/kyc/submit", authenticateUser, async (req: any, res) => {
   const { id_front, id_back, selfie } = req.body;
-  if (!id_front || !id_back || !selfie) return res.status(400).json({ error: "All three photos required: ID front, ID back, and selfie." });
   const db = await getDb();
   const user = await db.get("SELECT kyc_status FROM users WHERE id = ?", [req.user.id]);
   if (user?.kyc_status === "verified") return res.status(400).json({ error: "KYC already verified." });
-  
+
   // Store KYC submission (in production, images would be uploaded to cloud storage)
-  await db.run("UPDATE users SET kyc_status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [req.user.id]);
-  await db.run("INSERT INTO admin_audit_log (action, details, ip_address, admin_id) VALUES (?, ?, ?, 0)", [
-    `KYC submitted by user ${req.user.id}`,
-    `User uploaded ID front, ID back, and selfie for verification.`,
-    req.ip
-  ]);
+  await db.run("UPDATE users SET kyc_id_front=?, kyc_id_back=?, kyc_selfie=?, kyc_status = 'pending', kyc_submitted_at=CURRENT_TIMESTAMP WHERE id = ?", [id_front || '', id_back || '', selfie || '', req.user.id]);
+  await logAdminAction(`KYC submitted by user ${req.user.id}`, `User uploaded ID front, ID back, and selfie for verification.`, req.ip);
   await db.run("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'kyc', 'KYC Submitted', 'Your identity documents have been submitted for review. This usually takes 24 hours.')", [req.user.id]);
-  
+
   res.json({ success: true, message: "KYC documents submitted for review." });
 });
 
@@ -1062,6 +1036,7 @@ app.get("/api/referrals/tree", authenticateUser, async (req: any, res) => {
   // Level 1: direct referrals
   const level1 = await db.all("SELECT u.id, u.name, u.email, u.created_at, u.kyc_status, r.status as ref_status FROM referrals r JOIN users u ON r.referred_user_id = u.id WHERE r.referrer_id = ?", [req.user.id]);
   // Level 2: referrals of referrals
+  const level2: any[] = [];
   const level2Ids: number[] = [];
   for (const ref of level1) {
     const l2 = await db.all("SELECT u.id, u.name, u.email, u.created_at, u.kyc_status FROM referrals r JOIN users u ON r.referred_user_id = u.id WHERE r.referrer_id = ?", [ref.id]);
@@ -1325,12 +1300,6 @@ app.get("/api/lottery/status", authenticateUser, async (req: any, res) => {
 });
 
 // ==================== NOTIFICATIONS ====================
-
-app.get("/api/notifications", authenticateUser, async (req: any, res) => {
-  const db = await getDb();
-  const notifs = await db.all("SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 50", [req.user.id]);
-  res.json(notifs);
-});
 
 app.post("/api/notifications/:id/read", authenticateUser, async (req: any, res) => {
   const db = await getDb();
@@ -1799,9 +1768,27 @@ app.post("/api/admin/users/:userId/status", authenticateAdmin, async (req: any, 
 });
 
 app.post("/api/admin/users/:userId/edit", authenticateAdmin, async (req: any, res) => {
-  const { name, email, phone, city, country, crypto_wallet_address, horizon_points, balance, kyc_status, membership_tier, is_incognito, membership_active, is_president_club } = req.body;
+  const { name, email, phone, city, country, crypto_wallet_address, horizon_points, balance, kyc_status, membership_tier, is_incognito, membership_active, is_president_club, membership_expiry } = req.body;
   const db = await getDb();
-  await db.run("UPDATE users SET name=?, email=?, phone=?, city=?, country=?, crypto_wallet_address=?, horizon_points=?, balance=?, kyc_status=?, membership_tier=?, is_incognito=?, membership_active=?, is_president_club=? WHERE id=?", [name || '', email || '', phone || '', city || '', country || 'US', crypto_wallet_address || '', horizon_points || 0, balance || 0, kyc_status || 'not_submitted', membership_tier || 'standard', is_incognito ? 1 : 0, membership_active ? 1 : 0, is_president_club ? 1 : 0, req.params.userId]);
+  const sets: string[] = [];
+  const params: any[] = [];
+  if (name !== undefined) { sets.push("name=?"); params.push(name); }
+  if (email !== undefined) { sets.push("email=?"); params.push(email); }
+  if (phone !== undefined) { sets.push("phone=?"); params.push(phone); }
+  if (city !== undefined) { sets.push("city=?"); params.push(city); }
+  if (country !== undefined) { sets.push("country=?"); params.push(country); }
+  if (crypto_wallet_address !== undefined) { sets.push("crypto_wallet_address=?"); params.push(crypto_wallet_address); }
+  if (horizon_points !== undefined) { sets.push("horizon_points=?"); params.push(horizon_points); }
+  if (balance !== undefined) { sets.push("balance=?"); params.push(balance); }
+  if (kyc_status !== undefined) { sets.push("kyc_status=?"); params.push(kyc_status); }
+  if (membership_tier !== undefined) { sets.push("membership_tier=?"); params.push(membership_tier); }
+  if (membership_expiry !== undefined) { sets.push("membership_expiry=?"); params.push(membership_expiry); }
+  if (is_incognito !== undefined) { sets.push("is_incognito=?"); params.push(is_incognito ? 1 : 0); }
+  if (membership_active !== undefined) { sets.push("membership_active=?"); params.push(membership_active ? 1 : 0); }
+  if (is_president_club !== undefined) { sets.push("is_president_club=?"); params.push(is_president_club ? 1 : 0); }
+  if (sets.length === 0) return res.status(400).json({ error: "No fields provided." });
+  params.push(req.params.userId);
+  await db.run(`UPDATE users SET ${sets.join(", ")} WHERE id=?`, params);
   await logAdminAction("Edited user", `User ID ${req.params.userId}`, req.ip, req.adminId);
   res.json({ success: true });
 });
@@ -2303,14 +2290,6 @@ app.post("/api/admin/maintenance", authenticateAdmin, async (req: any, res) => {
   await setSetting('maintenance_mode', enabled ? 'true' : 'false');
   await logAdminAction("Toggled maintenance mode", enabled ? 'ON' : 'OFF', req.ip, req.adminId);
   res.json({ success: true });
-});
-
-// Notification email endpoint
-app.post("/api/settings/notification-email", authenticateUser, async (req: any, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email required." });
-  await setSetting(`notification_email_${req.user.id}`, email);
-  res.json({ success: true, message: "Notification email updated." });
 });
 
 // Admin shipment notification email

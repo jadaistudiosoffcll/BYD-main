@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 interface LandingPageProps {
-  onNavigate: (view: "landing" | "payment" | "dashboard" | "admin" | "help", params?: any) => void;
+  onNavigate: (view: "landing" | "vehicles" | "payment" | "dashboard" | "admin" | "help", params?: any) => void;
   charityAmount: number;
   setCharityAmount: React.Dispatch<React.SetStateAction<number>>;
 }

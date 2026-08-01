@@ -862,7 +862,7 @@ const PaymentFlow: React.FC<PaymentFlowProps> = ({ initialPlan, onNavigate, onLo
                   }} />
                   <label htmlFor={key} className="flex items-center gap-3 p-4 bg-white/5 border border-dashed border-white/10 rounded-xl cursor-pointer hover:border-emerald-500/30 transition-all">
                     <Camera className="w-5 h-5 text-white/40" />
-                    <span className="text-sm text-white/50">{kyc[nameKey as keyof KycData] || `Upload ${label}`}</span>
+                    <span className="text-sm text-white/50">{String(kyc[nameKey as keyof KycData]) || `Upload ${label}`}</span>
                   </label>
                 </div>
               </div>

@@ -55,7 +55,7 @@ export const VehiclesPage: React.FC<VehiclesPageProps> = ({ onNavigate, id, mode
   const handleInvestTrigger = (car: Car) => {
     const token = localStorage.getItem("byd_horizon_token");
     if (token) {
-      onNavigate("dashboard", { tab: "secure", car: { id: car.id, model: car.model, price: car.price, monthlyFinance: car.monthlyFinance, image: car.image_url, rentalDaily: car.rental_price_per_day } });
+      onNavigate("dashboard", { tab: "secure", car: { id: car.id, model: car.model, price: car.price, monthlyFinance: car.monthlyFinance, image: car.imageUrl, rentalDaily: 0 } });
     } else {
       onNavigate("payment", { type: "installment", vehicleModel: car.model, price: car.price, monthlyFinance: car.monthlyFinance });
     }
